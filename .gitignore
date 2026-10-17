@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+
+# 打包产物
+*.skill
+dist/
+*.tgz
+
+# 运行/调试产物
+.opencode/docs-recall.log
+.dsh/docs-recall.log
+docs-doctor-*.log
+
+# 编辑器
+.idea/
+.vscode/
+*.swp
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/

@@ -1,0 +1,84 @@
+{
+  "name": "knowlog",
+  "displayName": "知录",
+  "version": "0.3.0",
+  "description": "给任何项目建立并维护一套会自我校验的文档体系：任务日志 + 结构化知识库 + 领域上下文 + 索引 + 门禁 + 关键词召回（跨 Claude Code / Codex / OpenCode / Cursor / Gemini / Copilot / DSH）",
+  "license": "MIT",
+  "type": "skill",
+  "entry": "SKILL.md",
+  "bin": "bin/knowlog.mjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "runtime": [
+    "bash",
+    "python3"
+  ],
+  "platforms": {
+    "claude-code": {
+      "kind": "skill-dir",
+      "scope": ["user", "project"],
+      "userPath": "~/.claude/skills/knowlog",
+      "projectPath": ".claude/skills/knowlog",
+      "recall": "hook:UserPromptSubmit"
+    },
+    "opencode": {
+      "kind": "skill-dir",
+      "scope": ["user", "project"],
+      "userPath": "~/.config/opencode/skills/knowlog",
+      "projectPath": ".opencode/skills/knowlog",
+      "recall": "config:opencode.json#instructions"
+    },
+    "codex": {
+      "kind": "project-adapter",
+      "recall": "hook:.codex/hooks.json#UserPromptSubmit（需人工一次性信任）"
+    },
+    "cursor": {
+      "kind": "rules-file",
+      "projectPath": ".cursor/rules/knowlog.mdc",
+      "recall": "manual:scripts/knowledge-retrieve.sh"
+    },
+    "gemini-cli": {
+      "kind": "context-file",
+      "projectPath": "GEMINI.md"
+    },
+    "copilot": {
+      "kind": "instructions-file",
+      "projectPath": ".github/copilot-instructions.md"
+    },
+    "dsh": {
+      "kind": "plugin-bundle",
+      "recall": "cordis-patch:insert{id,name}（注入钩子待按宿主 API 确认）"
+    },
+    "generic": {
+      "kind": "agents-md",
+      "projectPath": "AGENTS.md#KNOWLOG:START..END",
+      "recall": "manual:scripts/knowledge-retrieve.sh"
+    }
+  },
+  "scripts": {
+    "bootstrap": "scripts/bootstrap-docs.sh",
+    "log": "scripts/new-daily-log.sh",
+    "knowledge": "scripts/new-knowledge.sh",
+    "doctor": "scripts/docs-doctor.sh",
+    "adopt": "scripts/adopt-docs.sh",
+    "reindex": "scripts/reindex-knowledge.sh",
+    "recall": "scripts/knowledge-retrieve.sh",
+    "install-skill": "scripts/install-skill.sh",
+    "package": "scripts/package-skill.sh",
+    "test": "evals/test_scripts.sh"
+  },
+  "repository": "https://github.com/CR903/knowlog",
+  "keywords": [
+    "devlog",
+    "documentation",
+    "knowledge-base",
+    "domain-context",
+    "index-gate",
+    "context-recall",
+    "agent-skill",
+    "claude-code",
+    "opencode",
+    "codex"
+  ]
+}

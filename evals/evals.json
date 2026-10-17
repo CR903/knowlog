@@ -1,0 +1,116 @@
+{
+  "skill_name": "knowlog",
+  "evals": [
+    {
+      "id": "eval-0",
+      "name": "bootstrap-new-project",
+      "prompt": "我在这个目录里起了个新项目（Go 后端 + React 运营后台，代码刚起步，还没写过任何文档）。我想从第一天就把开发文档规范起来：每次做完一个任务要能自动记一笔，踩过的坑以后能找回来，别再让我翻聊天记录。你直接把架子搭好，然后告诉我以后每天该怎么用。",
+      "expected_output": "在项目里建立 docs/ 文档体系（daily 按月目录 + knowledge 按端分类 + domain context + agents）、索引、五个脚本、并把日志/知识/门禁约束写进 AGENTS.md 托管块；演示建一篇日志；check-daily-index.sh --strict 通过。",
+      "expectations": [
+        "docs/daily 下日志都已按月份目录归位（无散落 .md）",
+        "docs/knowledge 下按端建了目录且每端含四个分类",
+        "知识库两级索引存在（分端 index.md + 根 index.md）",
+        "docs/domain context/ 已建立（领域记忆层）",
+        "docs/agents/ 已建立（给 agent 的约定）",
+        "scripts/ 下六个脚本齐备且可执行",
+        "AGENTS.md 含托管块标记（KNOWLOG:START/END）且写了日志/门禁约束",
+        "门禁 check-daily-index.sh --strict 通过（退出码 0）",
+        "至少演示创建了一篇日志，且落位到 daily/<YYYY-MM>/",
+        "索引里的日志链接与磁盘文件一致（无死链）"
+      ]
+    },
+    {
+      "id": "eval-1",
+      "name": "record-log-after-task",
+      "prompt": "我在这个项目里刚把「库存导出的单位换算」修完了。简单说：界面把 500mL 显示成了 500mL/ml，根因是入库单位名与消耗单位名一致时不该再乘换算系数，验证方式是把一批货重新入库后看单位换算列，另外补了 3 个单测。请按这个项目的规范把这次工作记录下来，该沉淀的也一并沉淀。",
+      "expected_output": "在 docs/daily/<YYYY-MM>/ 下新增一篇日志（含根因与判据），索引行登记到对应月份表格；把「单位名一致时不再乘系数」沉淀成知识文档并更新分端与根索引；check-daily-index.sh --strict 通过。",
+      "expectations": [
+        "新建了日志文件（本次任务一篇）",
+        "新日志落在 daily/<YYYY-MM>/ 月份目录下（未散落在 daily 根）",
+        "新日志在 docs/index.md 有索引行且链接可达",
+        "日志写入了实质内容（根因/判据等，≥300 字）",
+        "日志包含根因或验证/判据的痕迹（不是只抄 diff）",
+        "沉淀了知识文档（knowledge 下新增一篇）",
+        "新知识已在根索引 docs/knowledge/index.md 登记",
+        "门禁 check-daily-index.sh --strict 通过（退出码 0）"
+      ]
+    },
+    {
+      "id": "eval-2",
+      "name": "fix-drift-existing",
+      "prompt": "我在这个项目里的文档索引对不上了：有几篇日志不知道跑哪去了、索引点了打不开、还有个月份明显不对。帮我体检一遍并修好，顺便让以后别再乱。",
+      "expected_output": "跑体检脚本定位所有偏差，把散落日志归位到月份目录、修好扁平链接与死链、修正月份不符的文件，使 check-daily-index.sh --strict 通过，且不丢原有日志内容。",
+      "expectations": [
+        "散落在 daily 根的日志已归位到月份目录",
+        "不存在「目录月 ≠ 文件名月」的日志",
+        "索引中不再有旧的扁平链接（daily/YYYY-MM-DD_x.md）",
+        "索引无死链（每条链接都有对应文件）",
+        "原日志未被误删（≥3 篇仍在）",
+        "每篇日志都有索引行（无遗漏）",
+        "门禁 check-daily-index.sh --strict 通过（退出码 0）"
+      ]
+    },
+    {
+      "id": "eval-3",
+      "name": "adopt-heterogeneous-docs",
+      "prompt": "我这个项目的文档是历史遗留的：日志散在 docs/logs、docs/journal 和根目录 daily 里，命名也各不相同；docs/knowledge 下有一堆随手记；AGENTS.md 里也有我自己写的东西。请把它按你们那套文档规范整理好，别把我原来的内容弄丢。",
+      "expected_output": "用采纳流程把日期日志归位到 docs/daily/<YYYY-MM>/ 并登记索引；保留既有知识内容与 AGENTS.md 用户内容；补上结构自检与体检能力；结构/索引门禁通过。",
+      "expectations": [
+        "原有日志已按月份归位（≥4 篇在 docs/daily/<YYYY-MM>/ 下）",
+        "索引登记了这些日志且链接全部可达（无死链）",
+        "未把 README/CHANGELOG 当成日志迁移",
+        "原有 AGENTS.md 的用户内容被保留（未被整体覆盖）",
+        "AGENTS.md 已注入 DOCS-SYSTEM 托管块（约束落地）",
+        "原有知识笔记的内容没有丢（内容以任意形式保留）",
+        "装上了结构自检脚本并可运行",
+        "体检总入口通过（结构 + 两项索引）"
+      ]
+    },
+    {
+      "id": "eval-4",
+      "name": "flat-single-surface",
+      "prompt": "taskq 是我写的一个 Python 命令行工具（单仓库、没有前后端之分），刚起步还没写文档。帮我建一套开发文档规范：以后每个任务收尾能记一笔，踩过的坑下次能找回来，并且能检查文档结构有没有跑偏。",
+      "expected_output": "按单面项目建 flat 布局知识库（四分类直接在 docs/knowledge/ 下，不造端层）+ 日志按月目录 + 索引 + 结构自检；门禁通过。",
+      "expectations": [
+        "知识库用 flat 布局：四个分类直接在 docs/knowledge/ 下",
+        "没有多余造出「端层」（单面项目不该有 backend/frontend 之类）",
+        "根索引存在且不是空的",
+        "演示/真实日志落在 docs/daily/<YYYY-MM>/（路径不变量）",
+        "日志在索引里有对应行且链接可达",
+        "结构自检通过（--strict）",
+        "AGENTS.md 托管块存在（约束落地）"
+      ]
+    },
+    {
+      "id": "eval-5",
+      "name": "cross-month-backfill",
+      "prompt": "我上个月底（9 月 28 日）那个紧急修复忘了记日志，今天补一下：原因是缓存 key 没带租户，改成 key 里带 tenantId 后好了，验证方式是切两个租户各跑一遍。另外我看 docs 的索引有点乱，你顺便看看。",
+      "expected_output": "补写的日志按【日志日期】落到 2026-09/ 并登记在 9 月表格；散落在 daily 根的日志归位；索引里的旧扁平死链修好；占位行填实；门禁与体检 --strict 全绿。",
+      "expectations": [
+        "daily 根下不再有散落日志（已按月份归位）",
+        "跨月补写的日志落在 2026-09/（按日志日期归月，不是今天所在的月）",
+        "原有 2026-10 日志没有被搬走",
+        "索引中不再有旧扁平路径（死链已修）",
+        "索引行里的占位（待回填/待补记）已填实",
+        "9 月日志的索引行落在 ### 2026-09 表格里",
+        "门禁 check-daily-index.sh --strict 通过",
+        "体检总入口 --strict 通过（结构 + 两项索引）"
+      ]
+    },
+    {
+      "id": "eval-6",
+      "name": "layout-mixing-and-odd-names",
+      "prompt": "我这项目的知识库有点乱：有的按前后端分了目录，有的直接放在分类目录下，还有一个 notes 目录是我随手记的（文件名里还有空格）。帮我统一成一种布局，别把内容弄丢。",
+      "expected_output": "把混用的知识统一到一种布局（by-end 或 flat），保留全部内容，收纳非常规目录，登记索引；结构自检与体检 --strict 全绿。",
+      "expectations": [
+        "内容零丢失：混用目录里的知识仍在（特征串可检索到）",
+        "非常规目录里的内容仍在（特征串可检索到）",
+        "原有端目录知识仍在",
+        "结构自检 --strict 通过（布局混用/非常规分类必须已收口）",
+        "最终只存在一种布局（不会既 by-end 又 flat）",
+        "体检总入口 --strict 通过",
+        "所有知识文档都已登记进索引（无遗漏）"
+      ]
+    }
+  ]
+}

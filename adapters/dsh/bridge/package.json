@@ -1,0 +1,16 @@
+{
+  "name": "docs-recall-dsh",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DSH 插件：每轮把 knowlog 的关键词召回结果注入上下文（薄壳，逻辑在项目内 scripts/recall-core.py）",
+  "main": "lib/index.js",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2"
+  }
+}
