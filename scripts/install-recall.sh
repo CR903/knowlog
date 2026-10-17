@@ -143,7 +143,7 @@ def put_block(rel: str, block: str):
         old = p.read_text(encoding="utf-8")
         if LEGACY_START in old and MARK_END in old and MARK_START not in old:
             # 旧标记的指针块：整块替换成新版（兼容老项目）
-            new_old = re.sub(re.escape(LEGACY_START) + r".*?" + re.escape(MARK_END),
+            new_old = re.sub(re.escape(LEGACY_START) + r"[^\n]*" + r".*?" + re.escape(MARK_END),
                              lambda _: block.strip(), old, flags=re.S)
             if not dry:
                 p.write_text(new_old, encoding="utf-8")

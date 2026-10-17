@@ -24,7 +24,7 @@
 ### 方式 A（推荐，零新代码）：把本仓文档挂进 DSH 的上下文
 
 DSH 的上下文/系统提示由它自己的插件（如 `dsh-context`、`@deepseek-ai/dsh-system-prompt`）构成。
-本仓的**静态约束**（日志/知识/领域/门禁）已经写在根 `AGENTS.md` 的 `DOCS-SYSTEM` 托管块里，
+本仓的**静态约束**（日志/知识/领域/门禁）已经写在根 `AGENTS.md` 的 `KNOWLOG` 托管块里，
 被任何 agent 读取；DSH 侧只要保证工作目录是本仓、且按 `AGENTS.md` 行事即可。
 
 **关键词召回**用命令行兜底（与其它 agent 完全同源）：

@@ -121,6 +121,18 @@ def put(rel: str, content: str):
     created.append(rel)
 
 
+def backup_block(rel: str, old_block_text: str):
+    """刷新托管块前，把旧块内容留一份备份 —— 块被视为工具所有，但绝不静默覆盖掉人写的东西。"""
+    if dry:
+        return
+    bak = root / (rel + ".block.bak")
+    try:
+        bak.write_text(old_block_text, encoding="utf-8")
+        notes.append(f"旧托管块已备份到 {rel}.block.bak（若你在块内写过内容，去那里找）")
+    except Exception:
+        pass
+
+
 def normalize(text: str) -> str:
     return text.rstrip("\n") + "\n"
 
@@ -139,11 +151,20 @@ def put_block_managed(rel: str, block: str, preamble: str = ""):
     if p.exists():
         old = p.read_text(encoding="utf-8")
         if LEGACY_START in old and LEGACY_END in old and MARK_START not in old:
-            migrated = re.sub(re.escape(LEGACY_START) + r".*?" + re.escape(LEGACY_END),
-                              lambda _: block.strip(), old, flags=re.S)
+            # 迁移"标记"而不是"重置内容"：老项目块内可能已经写了项目自己的规矩，
+            # 直接拿通用模板覆盖会**静默吃掉它们**（真实踩过）。所以只换标记，内容原样保留。
+            m = re.search(re.escape(LEGACY_START) + r".*?" + re.escape(LEGACY_END), old, flags=re.S)
+            backup_block(rel, m.group(0) if m else old)
+            # 整行规范化：旧标记行可能带额外后缀（如 `<!-- DOCS-SYSTEM:START (旧) -->`），
+            # 只替换前缀会留下 ` (旧) -->` 这种残尾
+            migrated = re.sub(r"<!--\s*" + re.escape("DOCS" + "-SYSTEM:START") + r"[^\n]*-->",
+                              lambda _: MARK_START, old)
+            migrated = re.sub(r"<!--\s*" + re.escape("DOCS" + "-SYSTEM:END") + r"\s*-->",
+                              lambda _: MARK_END, migrated)
             if not dry:
-                p.write_text(normalize(re.sub(r"\n{3,}", "\n\n", migrated)), encoding="utf-8")
-            created.append(rel + "（托管块标记已从 DOCS-SYSTEM 迁移到 KNOWLOG）")
+                p.write_text(normalize(migrated), encoding="utf-8")
+            created.append(rel + "（托管块标记已从 DOCS-SYSTEM 迁移到 KNOWLOG；块内内容原样保留）")
+            notes.append(f"如需把 {rel} 的块内容同步到上游模板，请 diff 后手工合并（块内容被视为你的自定义）")
             return
         if MARK_START in old and MARK_END in old:
             new = re.sub(re.escape(MARK_START) + r".*?" + re.escape(MARK_END),
@@ -151,6 +172,8 @@ def put_block_managed(rel: str, block: str, preamble: str = ""):
             new = normalize(re.sub(r"\n{3,}", "\n\n", new))
             if new == normalize(old):
                 skipped.append(rel + "（托管块已最新）"); return
+            m = re.search(re.escape(MARK_START) + r".*?" + re.escape(MARK_END), old, flags=re.S)
+            backup_block(rel, m.group(0) if m else old)
             if not dry:
                 p.write_text(new, encoding="utf-8")
             created.append(rel + "（刷新托管块）"); return

@@ -281,7 +281,7 @@ elif EVAL == "eval-3":
     ag = (PROJ / "AGENTS.md").read_text(encoding="utf-8") if (PROJ / "AGENTS.md").exists() else ""
     check("原有 AGENTS.md 的用户内容被保留（未被整体覆盖）",
           "不要直接改 migration 目录" in ag, f"AGENTS.md 长度 {len(ag)}")
-    check("AGENTS.md 已注入 DOCS-SYSTEM 托管块（约束落地）",
+    check("AGENTS.md 已注入 KNOWLOG 托管块（约束落地）",
           "KNOWLOG:START" in ag and "KNOWLOG:END" in ag, "")
     kn_text = ""
     for q in (PROJ / "docs").rglob("*.md"):
