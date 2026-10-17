@@ -105,6 +105,9 @@ dry = os.environ["DRY"] == "1"
 created, skipped, notes = [], [], []
 MARK_START = "<!-- KNOWLOG:START (由 knowlog skill 托管，手工改动请放在块外) -->"
 MARK_END = "<!-- KNOWLOG:END -->"
+# 识别用「前缀」而不是整行：标记行尾的说明文字可能被改过（真实踩过：
+# 手写块写的是"块内由脚本维护…"，于是整行不匹配 → 被当成"没有块"→ 又追加一份）
+MARK_RE = r"<!--\s*KNOWLOG:START[^\n]*-->.*?<!--\s*KNOWLOG:END[^\n]*-->"
 CATS = ["architecture", "guides", "troubleshooting", "best-practices"]
 
 
@@ -166,13 +169,12 @@ def put_block_managed(rel: str, block: str, preamble: str = ""):
             created.append(rel + "（托管块标记已从 DOCS-SYSTEM 迁移到 KNOWLOG；块内内容原样保留）")
             notes.append(f"如需把 {rel} 的块内容同步到上游模板，请 diff 后手工合并（块内容被视为你的自定义）")
             return
-        if MARK_START in old and MARK_END in old:
-            new = re.sub(re.escape(MARK_START) + r".*?" + re.escape(MARK_END),
-                         lambda _: block.strip(), old, flags=re.S)
+        if "<!-- KNOWLOG:START" in old and "<!-- KNOWLOG:END" in old:
+            new = re.sub(MARK_RE, lambda _: block.strip(), old, flags=re.S)
             new = normalize(re.sub(r"\n{3,}", "\n\n", new))
             if new == normalize(old):
                 skipped.append(rel + "（托管块已最新）"); return
-            m = re.search(re.escape(MARK_START) + r".*?" + re.escape(MARK_END), old, flags=re.S)
+            m = re.search(MARK_RE, old, flags=re.S)
             backup_block(rel, m.group(0) if m else old)
             if not dry:
                 p.write_text(new, encoding="utf-8")
@@ -198,7 +200,7 @@ def ensure_unmanaged_section(rel: str, marker_re: str, content: str):
         t = p.read_text(encoding="utf-8")
         # 必须先剥掉托管块：托管块自己也有一节「🧭 领域上下文路由（业务长期记忆）」，
         # 不剥的话宽判据会误判成手工区已存在，于是手工区永远建不出来（真实踩过）。
-        t_wo_block = re.sub(re.escape(MARK_START) + r".*?" + re.escape(MARK_END), "", t, flags=re.S)
+        t_wo_block = re.sub(MARK_RE, "", t, flags=re.S)
         if re.search(marker_re, t_wo_block, re.M):
             skipped.append(rel + "（手工维护区已存在，未改动）"); return
     if not p.exists():

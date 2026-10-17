@@ -113,7 +113,8 @@ import json, os, pathlib, shutil, stat, sys
 
 root = pathlib.Path(os.environ["ROOT"]); ad = pathlib.Path(os.environ["AD"])
 agents = os.environ["AGENTS"].split(); dry = os.environ["DRY"] == "1"
-MARK_START = "<!-- KNOWLOG:START"
+MARK_START = "<!-- KNOWLOG:START"      # 前缀匹配：说明文字变了也认得
+MARK_RE = r"<!--\s*KNOWLOG:START[^\n]*-->.*?<!--\s*KNOWLOG:END[^\n]*-->"
 LEGACY_START = "<!-- " + "DOCS" + "-SYSTEM:START"
 MARK_END = "<!-- KNOWLOG:END -->"
 done, skipped, notes = [], [], []
@@ -150,8 +151,7 @@ def put_block(rel: str, block: str):
             done.append(rel + "（指针块标记已迁移）"); return
         if MARK_START in old and MARK_END in old:
             import re
-            new = re.sub(re.escape(MARK_START) + r".*?" + re.escape(MARK_END), lambda _: block.strip(),
-                         old, flags=re.S)
+            new = re.sub(MARK_RE, lambda _: block.strip(), old, flags=re.S)
             if new == old:
                 skipped.append(rel + "（指针块已最新）"); return
             if not dry:

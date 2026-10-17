@@ -164,7 +164,7 @@ if not ag.exists():
 else:
     t = ag.read_text(encoding="utf-8")
     LEGACY = "DOCS" + "-SYSTEM"
-    if "KNOWLOG:START" not in t or "KNOWLOG:END" not in t:
+    if "<!-- KNOWLOG:START" not in t or "<!-- KNOWLOG:END" not in t:
         if LEGACY + ":START" in t and LEGACY + ":END" in t:
             warn("AGENTS.md", "托管块仍是旧标记 DOCS-SYSTEM（rename 之前写入的）",
                  "bash scripts/bootstrap-docs.sh   # 会把它迁移成 KNOWLOG 标记")

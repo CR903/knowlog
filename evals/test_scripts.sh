@@ -218,7 +218,23 @@ bash scripts/new-daily-log.sh older-log 2026-08-03 >/dev/null
 # 直接查真实文件，避免中间文件与转义干扰
 chk "补更早月份后仍保持年内降序（2026-11 在 2026-08 之前）" 'A=$(grep -n "^### 2026-11" docs/index.md | cut -d: -f1); B=$(grep -n "^### 2026-08" docs/index.md | cut -d: -f1); [ -n "$A" ] && [ -n "$B" ] && [ "$A" -lt "$B" ]'
 
-hdr "T9 手工区判据（不要重复造路由节）"
+hdr "T9 标记宽容性（说明文字被改过也要认得）"
+P="$SB/t9-marker"; mkproj "$P"; cd "$P"; git init -q . >/dev/null 2>&1
+bash "$SKILL/scripts/bootstrap-docs.sh" --root "$P" --project-name "标记宽容" >/dev/null 2>&1
+# 手工把标记行尾说明改掉（模拟人手编辑过托管块标记）
+python3 - "$P/AGENTS.md" <<'PYX'
+import pathlib, sys, re
+p = pathlib.Path(sys.argv[1]); s = p.read_text(encoding="utf-8")
+s = re.sub(r"<!--\s*KNOWLOG:START[^\n]*-->", "<!-- KNOWLOG:START (我自己改过的说明) -->", s)
+p.write_text(s, encoding="utf-8")
+PYX
+CP="$P/AGENTS.md"
+before=$(grep -c "KNOWLOG:START" "$CP")
+bash "$SKILL/scripts/bootstrap-docs.sh" --root "$P" --project-name "标记宽容" >/dev/null 2>&1
+chk "改过说明文字后重跑，仍是同一块（不追加第二块）" 'test "$(grep -c "<!-- KNOWLOG:START" AGENTS.md)" = "1"'
+chk "重跑后标记行被规范化" 'grep -q "手工改动请放在块外" AGENTS.md'
+
+hdr "T9b 手工区判据（不要重复造路由节）"
 P="$SB/t9-route"; mkproj "$P"; cd "$P"; git init -q . >/dev/null 2>&1
 mkdir -p docs/knowledge
 cat > AGENTS.md <<'DOC'
