@@ -218,5 +218,15 @@ bash scripts/new-daily-log.sh older-log 2026-08-03 >/dev/null
 # 直接查真实文件，避免中间文件与转义干扰
 chk "补更早月份后仍保持年内降序（2026-11 在 2026-08 之前）" 'A=$(grep -n "^### 2026-11" docs/index.md | cut -d: -f1); B=$(grep -n "^### 2026-08" docs/index.md | cut -d: -f1); [ -n "$A" ] && [ -n "$B" ] && [ "$A" -lt "$B" ]'
 
+hdr "T9 防泄露扫描器"
+chk "扫描器对干净仓库返回 0" 'bash "$SKILL/scripts/check-secrets.sh" --root "$SKILL" >/dev/null'
+LEAK="$SB/leak"; rm -rf "$LEAK"; mkdir -p "$LEAK"; cd "$LEAK"; git init -q .
+# 假密钥在运行时拼接，避免仓库里出现"像密钥的字面量"（否则扫描器会自伤）
+FAKE_KEY="sk-$(printf 'a%.0s' $(seq 1 30))$(printf '1%.0s' $(seq 1 6))"
+printf 'const k = "%s";\n' "$FAKE_KEY" > a.js; git add a.js
+chk "扫描器能抓到暂存区里的假密钥（负例）" '! bash "$SKILL/scripts/check-secrets.sh" --root "$LEAK" --staged >/dev/null'
+printf 'api_key = "%s"\n' "EXAMPLE_PLACEHOLDER_NOT_A_KEY" > b.py; git add b.py
+chk "扫描器不误报占位符写法" 'git -C "$LEAK" reset -q -- a.js && bash "$SKILL/scripts/check-secrets.sh" --root "$LEAK" --staged >/dev/null'
+
 printf '\n\033[1m==== 结果：%d 通过 / %d 失败 ====\033[0m\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

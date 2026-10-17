@@ -110,6 +110,18 @@ npx skills remove knowlog        # 卸载
 项目里的 `docs/` 与 `scripts/` 是**你的资产**，不随 skill 卸载而消失（这是刻意的：skill 是工具，文档体系是项目的一部分）。
 重新升级项目内那套：`bash scripts/bootstrap-docs.sh`（幂等，只刷新脚本/资产/托管块，不覆盖你手改的内容）。
 
+## 安全 / 防泄露
+
+本仓库自带两道防线（`.githooks/pre-commit`，已 `git config core.hooksPath .githooks`）：
+
+```bash
+bash scripts/check-secrets.sh            # 扫全仓：密钥/令牌/私钥 + 个人绝对路径 / 内网地址
+bash scripts/check-secrets.sh --staged   # 只扫暂存区（pre-commit 用）
+```
+
+命中即非零退出；误报可 `SKIP_SECRET_SCAN=1 git commit …` 临时跳过。
+**给 fork / 协作者**：把这条钩子留着 —— 泄露一旦进了 git 历史，收回成本极高（rewrite history + 通知所有协作者 + 轮换凭据）。
+
 ## 开发
 
 ```bash

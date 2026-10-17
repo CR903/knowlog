@@ -1,0 +1,11 @@
+#!/bin/bash
+# knowlog 仓库自己的 pre-commit：① 密钥/内部信息扫描 ② 确定性自测（快速）
+set -euo pipefail
+[ "${SKIP_SECRET_SCAN:-0}" = "1" ] || bash scripts/check-secrets.sh --staged
+# 自测较重（要跑 80+ 项），只在改动脚本/模板/适配器时跑，避免拖慢每次提交
+if git diff --cached --name-only | grep -qE '^(scripts/|assets/|adapters/|bin/|SKILL\.md)'; then
+  echo "▶ 改动触及工具链 → 跑确定性自测"
+  bash evals/test_scripts.sh >/tmp/knowlog-selftest.log 2>&1 || {
+    echo "❌ 自测失败（详见 /tmp/knowlog-selftest.log）"; tail -20 /tmp/knowlog-selftest.log; exit 1; }
+  tail -2 /tmp/knowlog-selftest.log
+fi
