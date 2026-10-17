@@ -312,13 +312,31 @@ SCRIPTS = ["bootstrap-docs.sh", "adopt-docs.sh", "new-daily-log.sh", "check-dail
            "check-docs-structure.sh", "docs-doctor.sh", "new-knowledge.sh",
            "check-knowledge-index.sh", "reindex-knowledge.sh", "new-keyword.sh", "knowledge-retrieve.sh",
            "install-recall.sh", "install-skill.sh", "package-skill.sh", "index-util.py", "recall-core.py"]
+same_src_dir = srcdir.resolve() == (root / "scripts").resolve()
+force_warned = False
 for s in SCRIPTS:
     src = srcdir / s
     dst = root / "scripts" / s
     if not src.exists():
         notes.append(f"⚠️ 资产缺失：{s}（跳过）"); continue
+    if dst.exists() and same_src_dir and os.environ.get("FORCE_SCRIPTS") == "1":
+        # 同源自拷优先判定：此时即使内容"相同"也说明用户想升级但指错了来源
+        if not force_warned:
+            notes.append("⚠️ --force-scripts 的来源是项目内 scripts/ 自己（自拷无变化）。"
+                         "要升级请从**已安装的 skill** 跑："
+                         "bash ~/.agents/skills/knowlog/scripts/bootstrap-docs.sh --root . --force-scripts")
+            force_warned = True
+        notes.append(f"脚本 {s} 未变更（同源自拷）"); continue
     if dst.exists() and dst.read_bytes() == src.read_bytes():
         skipped.append(f"scripts/{s}"); continue
+    if dst.exists() and same_src_dir:
+        # 来源就是项目内那份：--force-scripts 也只能自拷，明确告诉用户正确姿势
+        if not force_warned:
+            notes.append("⚠️ --force-scripts 的来源是项目内 scripts/ 自己（自拷无变化）。"
+                         "要升级请从**已安装的 skill** 跑："
+                         "bash ~/.agents/skills/knowlog/scripts/bootstrap-docs.sh --root . --force-scripts")
+            force_warned = True
+        notes.append(f"脚本 {s} 未变更（同源自拷）"); continue
     if dst.exists():
         if os.environ.get("FORCE_SCRIPTS") == "1":
             if not dry:
@@ -327,7 +345,7 @@ for s in SCRIPTS:
             created.append(f"scripts/{s}（--force-scripts 覆盖）")
             continue
         notes.append(f"⚠️ scripts/{s} 已存在且内容不同 → 保留你的版本"
-                     f"（升级用 bash scripts/bootstrap-docs.sh --force-scripts）"); continue
+                     f"（升级：从已安装的 skill 跑 bootstrap-docs.sh --force-scripts）"); continue
     if not dry:
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)

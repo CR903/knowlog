@@ -159,6 +159,12 @@ bash scripts/package-skill.sh --out ./dist    # 自定义输出目录
 ## 升级与迁移注意
 
 - 升级后会新增脚本：跑一次 `bootstrap-docs.sh` 就会补齐；**已有且内容不同的脚本默认保留你的版本**并打印提示。
-  确认项目内那份没被改过、要整体升到上游版本时：`bash scripts/bootstrap-docs.sh --force-scripts`。
+- 想把项目内那套整体升到上游版本（确认没自己改过）：
+
+  ```bash
+  # 从"已安装的 skill"跑，而不是项目内那份（后者等于自拷，不会有变化）
+  bash ~/.agents/skills/knowlog/scripts/bootstrap-docs.sh --root . --force-scripts
+  # 或用 CLI：npx knowlog init --agent auto   （CLI 本身随已安装的 skill 一起更新）
+  ```
 - 布局切换（flat ⇄ by-end）：见 `maintenance.md §2.5`，老文档不会自动搬家。
 - 卸载：删掉安装目录（`~/.claude/skills/knowlog/` 等）即可；项目内的体系是**你的资产**，不随 skill 删除而消失（这是刻意的：skill 是工具，文档体系是项目的一部分）。

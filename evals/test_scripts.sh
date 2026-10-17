@@ -218,7 +218,16 @@ bash scripts/new-daily-log.sh older-log 2026-08-03 >/dev/null
 # 直接查真实文件，避免中间文件与转义干扰
 chk "补更早月份后仍保持年内降序（2026-11 在 2026-08 之前）" 'A=$(grep -n "^### 2026-11" docs/index.md | cut -d: -f1); B=$(grep -n "^### 2026-08" docs/index.md | cut -d: -f1); [ -n "$A" ] && [ -n "$B" ] && [ "$A" -lt "$B" ]'
 
-hdr "T9 防泄露扫描器"
+hdr "T9 升级路径守卫与防泄露扫描器"
+P="$SB/t9-upgrade"; mkproj "$P"
+bash "$SKILL/scripts/bootstrap-docs.sh" --root "$P" --project-name "升级守卫" >/dev/null 2>&1
+cd "$P"
+chk "在项目内跑 --force-scripts 会提示'自拷'并给出正确命令" 'bash scripts/bootstrap-docs.sh --force-scripts > "$SB/guard.txt" 2>&1; grep -q "自拷" "$SB/guard.txt"'
+# 真实升级场景：项目里缺一个脚本 → 从已安装的 skill 跑应补齐
+rm -f scripts/docs-doctor.sh
+bash "$SKILL/scripts/bootstrap-docs.sh" --root . --force-scripts > "$SB/force.txt" 2>&1
+chk "从 skill 跑 bootstrap 能补齐缺失脚本（升级路径）" '[ -x scripts/docs-doctor.sh ]'
+
 chk "扫描器对干净仓库返回 0" 'bash "$SKILL/scripts/check-secrets.sh" --root "$SKILL" >/dev/null'
 LEAK="$SB/leak"; rm -rf "$LEAK"; mkdir -p "$LEAK"; cd "$LEAK"; git init -q .
 # 假密钥在运行时拼接，避免仓库里出现"像密钥的字面量"（否则扫描器会自伤）
