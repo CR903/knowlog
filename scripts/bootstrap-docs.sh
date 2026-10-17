@@ -19,7 +19,7 @@ set -euo pipefail
 
 # 环境变量归一化：KNOWLOG_HOME 为准，兼容旧的 DOCS_SYSTEM_HOME
 KNOWLOG_HOME="${KNOWLOG_HOME:-${DOCS_SYSTEM_HOME:-}}"
-ROOT=""; ENDS=""; PROJECT_NAME=""; LAYOUT="auto"; WITH_RECALL=0; DRY=0
+ROOT=""; ENDS=""; PROJECT_NAME=""; LAYOUT="auto"; WITH_RECALL=0; DRY=0; FORCE_SCRIPTS=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --root) ROOT="${2:-}"; shift 2 ;;
@@ -31,6 +31,7 @@ while [ $# -gt 0 ]; do
     --knowledge-layout) LAYOUT="${2:-}"; shift 2 ;;
     --knowledge-layout=*) LAYOUT="${1#--knowledge-layout=}"; shift ;;
     --with-hook|--with-recall) WITH_RECALL=1; shift ;;
+    --force-scripts) FORCE_SCRIPTS=1; shift ;;        # 升级：用 skill 里的工具脚本覆盖项目内同名脚本
     --dry-run) DRY=1; shift ;;
     -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
     *) echo "未知参数：$1" >&2; exit 2 ;;
@@ -92,7 +93,7 @@ if [ "$DRY" -eq 1 ]; then echo "   ⚠️  --dry-run：只打印计划，不落�
 echo
 
 ROOT="$ROOT" PROJECT_NAME="$PROJECT_NAME" DATE="$DATE" ENDS="$ENDS" LAYOUT="$LAYOUT" \
-ASSETS="$ASSETS" SOURCE_SCRIPT_DIR="$SOURCE_SCRIPT_DIR" DRY="$DRY" python3 - <<'PY'
+ASSETS="$ASSETS" SOURCE_SCRIPT_DIR="$SOURCE_SCRIPT_DIR" DRY="$DRY" FORCE_SCRIPTS="$FORCE_SCRIPTS" python3 - <<'PY'
 import os, pathlib, re, shutil, stat, sys
 
 root = pathlib.Path(os.environ["ROOT"]); assets = pathlib.Path(os.environ["ASSETS"])
@@ -296,7 +297,14 @@ for s in SCRIPTS:
     if dst.exists() and dst.read_bytes() == src.read_bytes():
         skipped.append(f"scripts/{s}"); continue
     if dst.exists():
-        notes.append(f"⚠️ scripts/{s} 已存在且内容不同 → 保留你的版本（如需上游版本请手工比对）"); continue
+        if os.environ.get("FORCE_SCRIPTS") == "1":
+            if not dry:
+                shutil.copy2(src, dst)
+                os.chmod(dst, dst.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            created.append(f"scripts/{s}（--force-scripts 覆盖）")
+            continue
+        notes.append(f"⚠️ scripts/{s} 已存在且内容不同 → 保留你的版本"
+                     f"（升级用 bash scripts/bootstrap-docs.sh --force-scripts）"); continue
     if not dry:
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
