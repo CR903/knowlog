@@ -218,7 +218,20 @@ bash scripts/new-daily-log.sh older-log 2026-08-03 >/dev/null
 # 直接查真实文件，避免中间文件与转义干扰
 chk "补更早月份后仍保持年内降序（2026-11 在 2026-08 之前）" 'A=$(grep -n "^### 2026-11" docs/index.md | cut -d: -f1); B=$(grep -n "^### 2026-08" docs/index.md | cut -d: -f1); [ -n "$A" ] && [ -n "$B" ] && [ "$A" -lt "$B" ]'
 
-hdr "T9 升级路径守卫与防泄露扫描器"
+hdr "T9 手工区判据（不要重复造路由节）"
+P="$SB/t9-route"; mkproj "$P"; cd "$P"; git init -q . >/dev/null 2>&1
+mkdir -p docs/knowledge
+cat > AGENTS.md <<'DOC'
+# 已有手写路由节的项目
+
+## 🧭 Domain Context Routing (业务领域上下文路由)
+（我自己的路由表）
+DOC
+bash "$SKILL/scripts/bootstrap-docs.sh" --root "$P" --project-name "路由判据" >/dev/null 2>&1
+chk "项目已有手写路由节时，不再追加通用路由节" 'test "$(grep -cE "^## .*领域上下文路由表（手工维护）" AGENTS.md)" = "0"'
+chk "但托管块自身仍写入了（约束落点正常）" 'grep -q "KNOWLOG:START" AGENTS.md'
+
+hdr "T9b 升级路径守卫与防泄露扫描器"
 P="$SB/t9-upgrade"; mkproj "$P"
 bash "$SKILL/scripts/bootstrap-docs.sh" --root "$P" --project-name "升级守卫" >/dev/null 2>&1
 cd "$P"

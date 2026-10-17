@@ -194,8 +194,13 @@ def ensure_unmanaged_section(rel: str, marker_re: str, content: str):
     （"路由表在…一节"），子串匹配会误判成"已存在"，于是手工区永远建不出来。
     """
     p = root / rel
-    if p.exists() and re.search(marker_re, p.read_text(encoding="utf-8"), re.M):
-        skipped.append(rel + "（手工维护区已存在，未改动）"); return
+    if p.exists():
+        t = p.read_text(encoding="utf-8")
+        # 必须先剥掉托管块：托管块自己也有一节「🧭 领域上下文路由（业务长期记忆）」，
+        # 不剥的话宽判据会误判成手工区已存在，于是手工区永远建不出来（真实踩过）。
+        t_wo_block = re.sub(re.escape(MARK_START) + r".*?" + re.escape(MARK_END), "", t, flags=re.S)
+        if re.search(marker_re, t_wo_block, re.M):
+            skipped.append(rel + "（手工维护区已存在，未改动）"); return
     if not p.exists():
         put_block_managed(rel, "")     # 先确保文件存在
     p = root / rel
@@ -311,7 +316,8 @@ else:
 SCRIPTS = ["bootstrap-docs.sh", "adopt-docs.sh", "new-daily-log.sh", "check-daily-index.sh",
            "check-docs-structure.sh", "docs-doctor.sh", "new-knowledge.sh",
            "check-knowledge-index.sh", "reindex-knowledge.sh", "new-keyword.sh", "knowledge-retrieve.sh",
-           "install-recall.sh", "install-skill.sh", "package-skill.sh", "index-util.py", "recall-core.py"]
+           "install-recall.sh", "install-skill.sh", "package-skill.sh", "check-secrets.sh",
+           "index-util.py", "recall-core.py"]
 same_src_dir = srcdir.resolve() == (root / "scripts").resolve()
 force_warned = False
 for s in SCRIPTS:
@@ -373,7 +379,10 @@ for extra_src, extra_dst in [(srcdir.parent / "adapters", root / "scripts" / "ad
 # ---------- 4. 约束：托管块（规则）+ 手工维护区（路由表，只创建一次） ----------
 put_block_managed("AGENTS.md", render("agents-block.md.tmpl"),
                   preamble=f"# {name} — Agent 指南\n\n")
-ensure_unmanaged_section("AGENTS.md", r"^##\s+🧭\s*领域上下文路由表", render("agents-routing-section.md.tmpl"))
+# 判据要宽：项目可能已有手工写的路由节，标题形如「## 🧭 Domain Context Routing (业务领域上下文路由)」，
+# 这时候不能再造一个（会变成两份路由表）
+ensure_unmanaged_section("AGENTS.md", r"^##[^\n]*🧭[^\n]*(路由|Domain Context Routing)",
+                         render("agents-routing-section.md.tmpl"))
 
 # ---------- 报告 ----------
 print(f"✅ 新建/更新 {len(created)} 项")
