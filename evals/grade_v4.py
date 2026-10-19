@@ -107,13 +107,21 @@ def has_block() -> bool:
 
 
 def baseline_files() -> set[str]:
-    """夹具快照（setup_iteration4.sh 写在用例目录下）"""
-    b = OUT.parent.parent / "baseline_files.json"          # <case>/baseline_files.json
-    if not b.exists():
-        b = OUT.parent / "baseline_files.json"
-    if not b.exists():
-        return set()
-    return set(json.loads(b.read_text(encoding="utf-8")).get("files", []))
+    """夹具快照（setup_iteration4.sh 写在**用例目录**下）。
+
+    查找顺序按"离项目最近"排：PROJ.parent（= <case>/，与评分输出路径无关，最稳）→ OUT 的上级。
+    为什么强调"与输出路径无关"：一旦把 grading.json 写到别处（复核时手滑就会），
+    原来只看 OUT 的写法会静默返回空集，于是所有"新增了什么"的断言集体假红（真踩过）。
+    """
+    for b in (PROJ.parent / "baseline_files.json",          # <case>/baseline_files.json（首选）
+              OUT.parent.parent / "baseline_files.json",
+              OUT.parent / "baseline_files.json"):
+        if b.exists():
+            try:
+                return set(json.loads(b.read_text(encoding="utf-8")).get("files", []))
+            except Exception:
+                continue
+    return set()
 
 
 def new_files() -> list[str]:
