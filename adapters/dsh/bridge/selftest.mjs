@@ -236,6 +236,24 @@ say(`listeners=${[...ctx.listeners.keys()].join(",")}`);
   }
 }
 
+// ── 15. 不设 DOCS_RECALL_DEBUG 也会记一行「plugin loaded」────
+{
+  const home = mkdtempSync(join(tmpdir(), "docs-recall-home2-"));
+  const prevDebug = process.env.DOCS_RECALL_DEBUG;
+  const prevHome = process.env.DSH_HOME;
+  delete process.env.DOCS_RECALL_DEBUG;
+  process.env.DSH_HOME = home;
+  try {
+    apply(fakeCtx(), { core: "scripts/recall-core.py" });
+    chk("不需要调试开关也记录 plugin loaded（便于确认加载）",
+      safeRead(join(home, "docs-recall.log")).includes("plugin loaded"));
+  } finally {
+    if (prevDebug !== undefined) process.env.DOCS_RECALL_DEBUG = prevDebug;
+    if (prevHome === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = prevHome;
+    rmSync(home, { recursive: true, force: true });
+  }
+}
+
 // ── 10. abort 透传 ────────────────────────────────────────
 {
   const decision = await fire(ctx, { messages: [userMsg("改一下 consumeRate 换算法")], turn: 20, aborted: true });

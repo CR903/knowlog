@@ -59,8 +59,9 @@ function log(root, line) {
 }
 
 /** 宿主级日志（加载/卸载/异常兜底）：直接写 <DSH_HOME>/docs-recall.log，路径可预期。 */
-function logHost(line) {
-  if (process.env.DOCS_RECALL_DEBUG !== "1") return;
+function logHost(line, { always = false } = {}) {
+  // 加载事件 always=true：每次宿主启动只一行，零噪音，但能一眼确认"插件有没有被加载"
+  if (!always && process.env.DOCS_RECALL_DEBUG !== "1") return;
   try {
     const dir = process.env.DSH_HOME || join(homedir(), ".dsh");
     mkdirSync(dir, { recursive: true });
@@ -216,7 +217,7 @@ export function apply(ctx, config = {}) {
     }, "docs-recall: dispose pre-step listener");
   }
 
-  logHost(`plugin loaded（core=${core} maxChars=${maxChars}；会话目录按每轮解析）`);
+  logHost(`plugin loaded（core=${core} maxChars=${maxChars}；会话目录按每轮解析）`, { always: true });
 }
 
 export default apply;

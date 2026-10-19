@@ -93,7 +93,7 @@ createUserMessage({
      第一方 `dsh-tool-skill` 就是这么拿 cwd 的。本插件的兜底顺序：
      **显式绝对 `config.root` → `workingDirectory.ensure` → `agent.session.meta.cwd` → 进程 cwd**。
 
-2. **两处日志，别找错地方**（都要 `DOCS_RECALL_DEBUG=1`）：
+2. **两处日志，别找错地方**（`~/.dsh/docs-recall.log` 的「plugin loaded」**不需要调试开关**，每次宿主启动一行；其余日志需 `DOCS_RECALL_DEBUG=1`）：
    | 日志 | 位置 | 说明什么 |
    |---|---|---|
    | 加载/卸载 | `~/.dsh/docs-recall.log`（即 `$DSH_HOME`） | **插件有没有被加载** —— 没这行就说明 profile 没生效或没重启 |
