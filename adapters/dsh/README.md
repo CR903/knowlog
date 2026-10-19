@@ -102,6 +102,33 @@ createUserMessage({
    验证时要**在会话里发一句带代码标识符的话**（召回表按标识符命中，例如 `帮我看看 codeMode 的扣减逻辑`）；
    在会话里敲 shell 命令（如 `DOCS_RECALL_DEBUG=1 dsh --profile web`）会被当成聊天内容发给模型，不会启动任何东西。
 
+### 三个「配置看着都对、插件却不生效」的坑（本轮真机逐个踩到）
+
+1. **peer 区间与运行时不符 → 整个插件被判不兼容并禁用**（最隐蔽的一个）。
+   DSH 的规则原文（`dsh-app-boot` 的 `evaluatePluginCompatibility` 注释）：
+   > An own `engines.dsh` range decides alone and **peerDependencies are ignored**;
+   > otherwise **every `@deepseek-ai/dsh` or `@deepseek-ai/dsh-*` peer must match**.
+
+   事故经过：`bridge/package.json` 曾声明 `"@deepseek-ai/dsh-llm": "^0.1.6-alpha.2"`，
+   而运行时装的是 `0.2.1-rc.2` → 判定为不兼容 → **整行 `docs-recall` 被禁用**（配置里看不到任何报错，
+   插件只是永远不加载）。
+   修法：用 **`engines.dsh` 一锤定音**（本插件声明 `>=0.1.6-alpha.2`），并**删掉那个 peer** ——
+   它本来就是 optional + 动态 import + 有本地等价实现，声明成 peer 只会误伤自己。
+   回归守卫：`verify.sh` 的 **V6** 直接用 DSH 自己的判定函数验一遍。
+
+2. **`name` 指「目录」还是指「入口文件」**：指目录会走 **manifest**（并可能连带加载它的 `dsh.bundle.patch`）——
+   而本包是 bundle（其 patch 里 insert 的是**裸包名** `docs-recall-dsh`，走 bundle 安装路线时才有意义），
+   在"仅用 patch 叠加"的场景下会多出一个解析不到的 insert。
+   → **profile patch 里推荐指向入口文件**（本机验证通过的形态）：
+   ```yaml
+   - insert:
+       - id: docs-recall
+         name: file:///<已安装 skill>/adapters/dsh/bridge/lib/index.js
+   ```
+   走 bundle 安装路线（`dsh plugin add <bridge>`）时，包内 `cordis.patch.yml` 的裸包名才有意义。
+
+3. **宿主是常驻进程 + 终端 export 传不进**：见上一节 —— 必须重启服务，且调试开关要用 `launchctl setenv`（或写进 plist）。
+
 ### 四处真实先例（本机可读，本适配器照抄其形状）
 
 | 先例 | 位置 | 做了什么 |

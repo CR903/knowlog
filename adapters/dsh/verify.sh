@@ -122,5 +122,29 @@ YML
   rm -rf "$T"
 fi
 
+
+# ── V6 与 dsh 运行时的兼容性（真事故回归守卫）──────────────
+# 事故：bridge 曾在 peerDependencies 里声明 `@deepseek-ai/dsh-llm: ^0.1.6-alpha.2`，
+# 而运行时装的是 0.2.1-rc.2 —— 官方规则是「没有 engines.dsh 时，每个 @deepseek-ai/dsh* peer
+# 都必须匹配运行时」，于是**整个插件被判不兼容并禁用**（配置看着没问题，就是死活不生效）。
+# 现在用 engines.dsh 一锤定音，并请 DSH 自己的判定函数来验。
+if [ -n "${APP_BOOT:-}" ] && [ -f "$APP_BOOT" ]; then
+  OUT6=$(node --input-type=module -e "
+    import { readFileSync } from 'node:fs';
+    const boot = await import('file://$APP_BOOT');
+    const manifest = JSON.parse(readFileSync('$BRIDGE/package.json', 'utf8'));
+    const rt = boot.getDshRuntimeVersion ? boot.getDshRuntimeVersion() : undefined;
+    const r = boot.evaluatePluginCompatibility(manifest, {}, rt);
+    console.log(r === undefined ? 'OK' : 'INCOMPAT ' + JSON.stringify(r.requirements));
+  " 2>&1) || OUT6="ERR $OUT6"
+  case "$OUT6" in
+    OK*)  ok "与当前 dsh 运行时兼容（engines.dsh 单独决定，peer 不再参与判定）" ;;
+    INCOMPAT*) bad "被判不兼容 → 插件会被禁用：${OUT6#INCOMPAT }" ;;
+    *)    skip "无法判定兼容性（${OUT6%%\n*}）" ;;
+  esac
+else
+  skip "未定位到 dsh-app-boot（跳过兼容性判定）"
+fi
+
 printf '\n\033[1m合计\033[0m: %s 通过, %s 失败, %s 跳过\n' "$PASS" "$FAIL" "$SKIP"
 [ "$FAIL" -eq 0 ] || exit 1
