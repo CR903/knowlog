@@ -4,14 +4,14 @@
 
 | 类别 | 文件 | 测什么 | 依赖模型 | 何时跑 |
 |---|---|---|---|---|
-| 确定性自测 | `test_scripts.sh` | 脚本行为：布局/幂等/采纳/召回/体检/安装/打包/防泄露（96 项） | ❌ 不需要 | 每次提交（CI + pre-commit） |
+| 确定性自测 | `test_scripts.sh` | 脚本行为：布局/幂等/采纳/召回/体检/安装/打包/防泄露（97 项） | ❌ 不需要 | 每次提交（CI + pre-commit） |
 | 真实评测 | 下面那两套 | **模型行为**：给真实任务，agent 会不会照这套体系做 | ✅ 需要 | 发版前 / 大改提示词与工作流后 |
 
 ## 文件地图
 
 | 文件 | 属于 | 说明 |
 |---|---|---|
-| `test_scripts.sh` | 通用 | 96 项确定性自测（最快的门禁） |
+| `test_scripts.sh` | 通用 | 97 项确定性自测（最快的门禁） |
 | `build_fixtures.sh` · `setup_runs.sh` · `setup_iteration2.sh` · `setup_iteration3.sh` · `grade.py` · `run_grading.sh` | **iteration-1..3（历史）** | 保留以便追溯老结论；**数字不可与新一套混用**（夹具设计与隔离机制都不同） |
 | `build_fixtures_v4.sh` · `evals-v4.json` | **iteration-4（新）** | 夹具与用例定义（6 个用例：eval-7..12）；夹具只给原始素材，**不预置已建好的体系**（唯一例外 eval-9、eval-11，原因见 `evals-v4.json` 的 `design_notes`） |
 | `setup_iteration4.sh` | 新 | 批量造运行目录（含 `PROMPT.md`、基线快照、元数据） |

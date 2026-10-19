@@ -86,7 +86,7 @@ knowlog/
 ├── adapters/             # 各 agent 的薄适配器 + 为什么有的只能静态注入
 ├── assets/               # 模板（索引/README/日志/知识/领域/AGENTS 托管块）
 ├── references/           # structure / memory-and-constraints / maintenance / installation
-└── evals/                # 自带测试：96 项确定性自测 + 三轮真实评测的夹具与评分器（结论见 evals/RESULTS.md）
+└── evals/                # 自带测试：97 项确定性自测 + 三轮真实评测的夹具与评分器（结论见 evals/RESULTS.md）
 ```
 
 ## 支持的 agent
@@ -130,7 +130,7 @@ bash scripts/check-secrets.sh --staged    # 只扫暂存区（pre-commit 用）
 ## 开发
 
 ```bash
-bash evals/test_scripts.sh       # 96 项确定性自测（布局/幂等/adopt/召回/体检/安装/打包/边界/防泄露）
+bash evals/test_scripts.sh       # 97 项确定性自测（布局/幂等/adopt/召回/体检/安装/打包/边界/防泄露）
 # 推送到 GitHub 后，.github/workflows/ci.yml 会自动跑同一套自测 + 密钥扫描
 bash scripts/package-skill.sh    # 打包 .skill
 ```

@@ -250,6 +250,28 @@ rm -f scripts/new-daily-log.sh
 bash scripts/docs-doctor.sh > "$SB/doctor-out.txt" 2>&1 || true
 chk "体检失败时提示记一笔（附可跑命令）" 'grep -q "new-daily-log.sh fix-doc-drift" "$SB/doctor-out.txt"'
 
+hdr 'T10 脚本卫生：变量名紧跟中文（set -u 下当场 unbound）'
+BADVAR=$(python3 - "$SKILL" <<'PYX'
+import pathlib, re, sys
+root = pathlib.Path(sys.argv[1])
+pat = re.compile(r'(?<!\$)\$([A-Za-z_][A-Za-z0-9_]*)(?=[^\x00-\x7f])')
+hits = []
+for f in list(root.rglob("*.sh")) + [p for p in (root / ".githooks").glob("*") if p.is_file()]:
+    if "/.git/" in str(f) or "node_modules" in str(f):
+        continue
+    try:
+        text = f.read_text(encoding="utf-8")
+    except Exception:
+        continue
+    for i, line in enumerate(text.splitlines(), 1):
+        if pat.search(line):
+            hits.append(str(f.relative_to(root)) + ":" + str(i))
+print("\n".join(hits[:5]))
+PYX
+)
+chk '全仓 shell 脚本没有「变量紧跟非 ASCII」的写法（本项目踩过 8 次）' '[ -z "$BADVAR" ]'
+[ -n "$BADVAR" ] && printf '      %s\n' "$BADVAR"
+
 hdr "T9 标记宽容性（说明文字被改过也要认得）"
 P="$SB/t9-marker"; mkproj "$P"; cd "$P"; git init -q . >/dev/null 2>&1
 bash "$SKILL/scripts/bootstrap-docs.sh" --root "$P" --project-name "标记宽容" >/dev/null 2>&1

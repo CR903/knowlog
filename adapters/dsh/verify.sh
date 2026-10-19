@@ -50,16 +50,16 @@ else
       if printf '%s' "$OUT" | grep -q -- "- id: docs-recall"; then
         ok "$(basename "$(dirname "$PATCH")")/$(basename "$PATCH")：合入后含 '- id: docs-recall'（exit 0）"
       else
-        bad "$PATCH：合入成功但未见 docs-recall 条目"
+        bad "${PATCH}：合入成功但未见 docs-recall 条目"
       fi
     else
-      bad "$PATCH：--dump-config 失败（exit≠0）"; printf '%s\n' "$OUT" | tail -5
+      bad "${PATCH}：--dump-config 失败（exit≠0）"; printf '%s\n' "$OUT" | tail -5
     fi
   done
 
   hdr "V3 bundle patch 路径解析（用 DSH 自己的 loadOverlayPatches）"
   if [ ! -f "$APP_BOOT" ]; then
-    skip "找不到 $APP_BOOT，无法用 DSH 真实代码验证"
+    skip "找不到 ${APP_BOOT}，无法用 DSH 真实代码验证"
   else
     V3=$(cd "$BRIDGE" && node --input-type=module -e "
 import { readFileSync } from 'node:fs';
@@ -83,7 +83,7 @@ try {
   DSH_HOME_DIR="${DSH_HOME:-$HOME/.dsh}"
   LLM_DIR="$DSH_HOME_DIR/profiles/node_modules/@deepseek-ai/dsh-llm"
   if [ ! -d "$LLM_DIR" ]; then
-    skip "profile 里没有 $LLM_DIR（插件会用本地等价构造器，仍可用）"
+    skip "profile 里没有 ${LLM_DIR}（插件会用本地等价构造器，仍可用）"
   else
     # 把插件放到 profiles/ 下的临时目录里跑一次：Node 逐级向上能找到 profiles/node_modules
     TMPROOT="$DSH_HOME_DIR/profiles/.knowlog-verify-$$"
