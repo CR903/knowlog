@@ -187,11 +187,22 @@ dsh --profile web --patch adapters/dsh/cordis.patch.yml --dump-config | grep -A6
 | 官方构造器分支也正确 | `verify.sh` V4 用 profile 侧解析跑同一套断言 → `16 passed, 0 failed`；缺包时走本地等价实现（与上游 `createMessage` 逐字一致） |
 | 找不到 `recall-core.py` 时完全静默退出 | selftest 断言：不注册任何监听器（不会弄坏宿主） |
 
+- ✅ **真实会话里每轮注入生效**（2026-10-19 本机实测，DSH `0.1.6-alpha.2` + `web` profile，launchd 常驻）：
+  ```
+  [2026-10-19T09:00:57.419Z] turn 1 step 1: 注入 338 chars（本地等价实现）root=<项目目录>
+  ```
+  对应会话里发的是 `帮我看看 codeMode 的扣减逻辑`，注入的正是召回表里那条「一瓶一码双轨…漏 parent 扣减致幻影 + 文档路径」。
+  这条同时证明了三件事：① profile 生效（`~/.dsh/docs-recall.log` 有 `plugin loaded`）；
+  ② **会话目录按每轮解析正确**（root 是项目目录而不是常驻进程的 `/`）；③ 召回真的进了模型上下文。
+  > 附注：日志里的「本地等价实现」是因为本插件的安装位置（`~/.agents/skills/…`）解析不到 DSH 自己的
+  > `@deepseek-ai/dsh-llm`，于是退回与上游 `createMessage` 逐字一致的本地构造；**消息形状一致、实测可用**。
+  > 若将来 `UserMessage` 加了必填字段，优先改这里的构造（`userMessageCtor()`）。
+
 ### 未验证（需要你参与的一次动作）
 
 | 项 | 为什么没验 | 怎么补 |
 |----|-----------|--------|
-| **真实会话里每轮注入生效** | 需要 boot 一个带模型的 DSH 会话（真发请求）。patch 已可由用户并进 profile（本机已并，带备份） | ① `launchctl kickstart -k gui/$(id -u)/com.dsh.doctor` 重启服务；② 看 `~/.dsh/docs-recall.log` 出现 `plugin loaded`（证明加载）；③ 在**会话里**发 `帮我看看 codeMode 的扣减逻辑`；④ 看 `<项目>/.dsh/docs-recall.log` 出现 `turn 1 step 1: 注入 … chars` |
+| `./bridge` 免安装路线 | 解析层已验证（`verify.sh` V5 锚定为 `file://…`）；**尚未在真实会话里跑过** | 想验：在项目里 `dsh --profile web --patch .dsh/docs-recall.patch.yml` 起一次会话 |
 | 相对 `name: ./bridge` 能被**加载**（不只是被锚定） | 只验到 `--dump-config` 的解析/锚定层，没 boot | 上面那次会话同时能覆盖；失败只影响这一行，删掉 patch 行即恢复 |
 | bundle 路线在全新 profile 上的行为 | 需要 `dsh plugin add`（会写 profile + 装包） | 需要时手动跑路线 2 |
 

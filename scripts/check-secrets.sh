@@ -54,7 +54,7 @@ echo "🔍 check-secrets（模式：$MODE · 根：${ROOT}）"
 scan "高危密钥/令牌/私钥" "$SECRET_RE"
 scan "疑似赋值型密钥" "$ASSIGN_RE" "$PLACEHOLDER_RE"
 scan "个人绝对路径 / 内网地址 / 私有域（不是密钥，但会泄露内部信息）" "$INTERNAL_RE" \
-     "(/Users/apple/project/knowlog|~/\.agents|~/\.claude|~/\.config)"
+     "(~/\.agents|~/\.claude|~/\.config)"   # 只放行文档里 ~ 举例的写法；真实个人绝对路径仍会被拦
 
 if [ "$FAIL" -eq 1 ]; then
   echo
