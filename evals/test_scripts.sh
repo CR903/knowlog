@@ -4,11 +4,28 @@
 #       各 agent 召回适配器安装 · 两级索引门禁 · 边界与报错
 #
 # 用法: bash evals/test_scripts.sh [sandbox_root]
+#   不传沙箱：每次运行用**独有**临时目录（退出即清理）→ 可安全并发跑；
+#   传沙箱  ：清空该目录后使用（调用方负责，适合要保留现场时）。
+#   为什么这么改：默认固定路径 + 开头 rm -rf，会让两个并发运行互相删目录，
+#   表现成一堆"莫名其妙"的红（实测复现：`cd: …t7-install: No such file` 等）。
 set -uo pipefail
 
 SKILL="$(cd "$(dirname "$0")/.." && pwd)"
-SB="${1:-${TMPDIR:-/tmp}/knowlog-selftest}"
-rm -rf "$SB"; mkdir -p "$SB"
+SB="${1:-}"
+OWN_SB=0
+if [ -z "$SB" ]; then
+  SB="$(mktemp -d "${TMPDIR:-/tmp}/knowlog-selftest-XXXXXX")"
+  OWN_SB=1
+else
+  rm -rf "$SB"
+fi
+mkdir -p "$SB"
+if [ "$OWN_SB" = 1 ]; then
+  trap 'rm -rf "$SB"' EXIT INT TERM
+  printf '沙箱：%s（本次独有，退出即清理）\n' "$SB"
+else
+  printf '沙箱：%s（调用方提供，会先清空）\n' "$SB"
+fi
 PASS=0; FAIL=0
 ok()   { PASS=$((PASS+1)); printf '  ✅ %s\n' "$1"; }
 bad()  { FAIL=$((FAIL+1)); printf '  ❌ %s\n' "$1"; }
@@ -152,12 +169,12 @@ mkdir -p docs/knowledge/architecture && touch docs/knowledge/architecture/stray.
 chknot "结构自检：抓到布局混用" 'bash scripts/check-docs-structure.sh --strict >/dev/null'
 rm -rf docs/knowledge/architecture
 # 负例2：脚本被删（"收尾记日志"这条链断掉）
-mv scripts/new-daily-log.sh /tmp/ndl.bak
+mv scripts/new-daily-log.sh "$SB/ndl.bak"
 chknot "结构自检：抓到脚本缺失" 'bash scripts/check-docs-structure.sh --strict >/dev/null'
 chk "体检总入口：结构项失败即整体失败" '! bash scripts/docs-doctor.sh --strict --quiet >/dev/null'
-mv /tmp/ndl.bak scripts/new-daily-log.sh
+mv "$SB/ndl.bak" scripts/new-daily-log.sh
 # 负例3：托管块被删（约束落点没了）
-cp AGENTS.md /tmp/ag.bak && grep -v "KNOWLOG" /tmp/ag.bak > AGENTS.md
+cp AGENTS.md "$SB/ag.bak" && grep -v "KNOWLOG" "$SB/ag.bak" > AGENTS.md
 chknot "结构自检：抓到托管块缺失" 'bash scripts/check-docs-structure.sh --strict >/dev/null'
 bash scripts/bootstrap-docs.sh >/dev/null 2>&1
 chk "重跑 bootstrap 后托管块恢复" 'grep -q "KNOWLOG:START" AGENTS.md'

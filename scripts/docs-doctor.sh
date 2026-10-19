@@ -49,10 +49,10 @@ for i in 0 1 2; do
     RESULTS+=("SKIP  ${NAMES[$i]}（缺 scripts/${SCRIPTS[$i]}）"); continue
   fi
   if [ "$QUIET" -eq 1 ]; then
-    if bash "$s" "${ARGS[@]}" >/tmp/docs-doctor-$i.log 2>&1; then
+    if bash "$s" "${ARGS[@]}" >"${TMPDIR:-/tmp}/docs-doctor-$$-$i.log" 2>&1; then
       RESULTS+=("PASS  ${NAMES[$i]}")
     else
-      RESULTS+=("FAIL  ${NAMES[$i]}（详见 /tmp/docs-doctor-$i.log）"); FAILED=1
+      RESULTS+=("FAIL  ${NAMES[$i]}（详见 ${TMPDIR:-/tmp}/docs-doctor-$$-$i.log）"); FAILED=1
     fi
   else
     echo
