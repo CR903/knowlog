@@ -126,7 +126,7 @@ bash scripts/install-recall.sh --agent auto    # 确认后再装（幂等）
 | OpenCode v2 | 项目 `opencode.json` 的 `instructions`（每会话必读） | ✅ **端到端**：`opencode run` 复述探针字符串命中 |
 | OpenCode v1 | `.opencode/plugins/*.ts` 的 `chat.message`（每轮关键词召回） | 契约来自 v1 API；v2 装了不报错也不触发，故默认不装（`DOCS_RECALL_OPENCODE_V1_PLUGIN=1` 可强制） |
 | Cursor / Gemini / Copilot | `.cursor/rules/*.mdc` / `GEMINI.md` / `.github/copilot-instructions.md` | 文件级（指针，不复制规则） |
-| DSH | cordis patch 层 `insert: [{id, name}]` + 桥接包骨架 | patch 格式抄自本机真实 DSH 插件；**钩子注册需按其插件 API 补一行**（见 `adapters/dsh/README.md`） |
+| DSH | `agent/pre-step` waterfall：插件把召回结果当一条带来源的 `UserMessage` 追进本轮进入批次 | ✅ **机制已定位并落地**（读官方 d.ts 契约 + 4 处真实实现，含用户已装的 `dsh-mnemon`）；`bash adapters/dsh/verify.sh` 6 项全绿 + `bridge/selftest.mjs` 16 条断言；⚠️ 真实会话端到端需你把自己 profile 的那一行 patch 加上（脚本不改宿主配置） |
 | 其它（Aider/Cline/Roo/Qwen/iFlow/Antigravity/Kilo/Windsurf/Devin/Amp…） | 无可靠每轮机制 → 靠 `AGENTS.md` 托管块 + `knowledge-retrieve.sh` | ✅ 命令行路径与有钩子的 agent 同源 |
 
 **关键取舍**：宁可"静态规则 + 命令行召回"也不装"看起来能自动但实际不触发"的适配器 ——

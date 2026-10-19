@@ -113,7 +113,7 @@ targets_for() {   # 输出 "<agent>|<target dir or file>|<kind:dir|rules|pointer
     cursor)   echo "cursor|$ROOT/.cursor/rules/knowlog.mdc|file" ;;
     gemini)   echo "gemini|$ROOT/GEMINI.md|pointer" ;;
     copilot)  echo "copilot|$ROOT/.github/copilot-instructions.md|pointer" ;;
-    dsh)      echo "dsh|$ROOT/.dsh/docs-recall.patch.yml（+ 桥接包）|project-adapter" ;;
+    dsh)      echo "dsh|$ROOT/.dsh/docs-recall.patch.yml + $ROOT/.dsh/bridge/|project-adapter" ;;
     *)        echo "$a|$ROOT/AGENTS.md + $ROOT/scripts/|project-adapter" ;;
   esac
 }
@@ -257,8 +257,10 @@ for a in $AGENTS; do
           echo "          且钩子需你在交互式会话里**一次性信任**后才会执行）"
         fi
         if [ "$ag" = "dsh" ]; then
-          echo "        （DSH 插件是 pnpm 包 + cordis patch 层：见 adapters/dsh/README.md；"
-          echo "          patch 可先验证：dsh --profile web --patch .dsh/docs-recall.patch.yml --dump-config）"
+          echo "        （DSH 每轮注入 = agent/pre-step waterfall 插件；桥接包已落到 .dsh/bridge/，"
+          echo "          免安装。先 dry-run：dsh --profile web --patch .dsh/docs-recall.patch.yml --dump-config"
+          echo "          要真生效需你自己把 insert 段并进 \$DSH_HOME/profiles/<profile>/cordis.patch.yml"
+          echo "          —— 或改用命令行兜底：bash scripts/knowledge-retrieve.sh \"<prompt>\"）"
         fi
       fi
       ;;

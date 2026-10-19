@@ -1,12 +1,1 @@
-# DSH 召回桥接包的 patch 层：把桥接插件插入 loader graph。
-# 验证：dsh --profile web --patch "<此文件绝对路径>" --dump-config | grep docs-recall
-# 固化：把下面这段并进 $DSH_HOME/profiles/<profile>/cordis.patch.yml
-- insert:
-    - id: docs-recall
-      name: docs-recall-dsh
-      config:
-        # 相对项目根的路径（DSH 在项目工作区启动时解析）
-        root: "."
-        core: "scripts/recall-core.py"
-        events:
-          - user_prompt_submit
+bridge/cordis.patch.yml

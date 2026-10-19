@@ -8,7 +8,7 @@
 | `claude/` | Claude Code | `UserPromptSubmit` 命令钩子（stdin JSON / stdout JSON） | `.claude/hooks/docs-recall.py` + `.claude/settings.json` 合并 | ✅ `claude` CLI 可跑；也可直接喂 stdin 单测 |
 | `codex/` | Codex CLI | **与 Claude 同形**的钩子契约，配置在 `.codex/hooks.json` | `.codex/hooks/docs-recall.py` + `.codex/hooks.json` 合并 | ✅ `codex exec` 非交互可跑；stdin 单测 |
 | `opencode/` | OpenCode ≥ v2 | TS 插件，`.opencode/plugins/*.ts` 启动时自动加载，`chat.message` 钩子每轮触发 | `.opencode/plugins/docs-recall.ts` | ✅ 插件加载可查日志；端到端需一次真实会话 |
-| `dsh/` | DeepSeek Harness | 插件 = npm 包 + `dsh.bundle.patch`（cordis patch 层）；`dsh plugin --profile <p> add <pkg>` | 项目内 `.dsh/docs-recall.patch.yml` + 应用说明 | ⚠️ patch 层可用 `dsh --profile <p> --dump-config` 验证；hook 注册需按其插件 API（见该目录 README） |
+| `dsh/` | DeepSeek Harness | **`agent/pre-step` waterfall**（官方每轮注入 seam）：插件注册该事件，把召回结果当一条带来源的 `UserMessage` 追进本轮进入批次 | `.dsh/docs-recall.patch.yml` + `.dsh/bridge/`（免安装，patch 里写 `name: ./bridge`） | ✅ 机制已定位并落地：`bash adapters/dsh/verify.sh`（6 项，全只读/dry-run）+ `bridge/selftest.mjs` 16 条断言；端到端仍需一次真实会话 |
 | `cursor/` | Cursor | 项目规则文件 `.cursor/rules/*.mdc` | `.cursor/rules/knowlog.mdc` | 文件级 |
 | `gemini/` | Gemini CLI | 项目上下文文件 `GEMINI.md` | `GEMINI.md`（追加托管块） | 文件级 |
 | `copilot/` | GitHub Copilot | `.github/copilot-instructions.md` | 同左（追加托管块） | 文件级 |

@@ -1,5 +1,7 @@
 # DSH（DeepSeek Harness）适配器
 
+本机核实版本：`dsh 0.1.6-alpha.2`（安装于 npm 全局，`command -v dsh` → `<nvm>/bin/dsh`；profile 在 `$DSH_HOME/profiles/web`）。
+
 ## DSH 的机制（已核实）
 
 - **插件 = npm 包 + patch 层**，装在 profile 里：
@@ -17,15 +19,93 @@
         name: dsh-context
   ```
 
-- 也可以用 `dsh --patch <path>` 临时叠加一层（不改用户配置），适合"先验证再固化"。
+- `dsh --profile <p> --patch <path> --dump-config` 会**合入**这层并打印组合后的树后退出，
+  **不 boot、不求值 `!!js`**（`@deepseek-ai/dsh/apps/cli` 的 `dump-config` 模块原话：
+  "compose the profile's patch layers through the include plugin's patch algorithm
+  without booting or evaluating `!!js`"）→ 所以它是安全的 dry-run。
+- `insert` 条目里的 `name` 若以 `./` 或 `../` 开头，会被锚成**相对于该 patch 文件的 `file://` URL**
+  （`@deepseek-ai/dsh-app-boot` 的 `anchorInsertedPluginNames`）——这给了我们"免安装"路线。
+
+## 每轮注入的官方机制：`agent/pre-step` waterfall（本轮定位并落地）
+
+> 结论：DSH 的每轮注入点是 **`agent/pre-step` 这个 waterfall 事件**。
+> 不存在"某个 prompt/context 服务上调用 `.inject()`"这种 API——之前 `bridge/lib/index.js`
+> 里那处 `TODO_INJECT`（探测 `ctx.get('prompt'/'context'/…).inject`）**方向是错的**，已删除。
+
+契约来自 `@deepseek-ai/dsh-agent` 的 `lib/types/runtime-types.d.ts`（原文摘抄）：
+
+```ts
+'agent/pre-step'(this: Scoped<Agent>, payload: {
+    agent: Agent;
+    messages: UserMessage[];   // 本步从 inbox 领取的消息（首步就是用户这次提交的 prompt）
+    turn: number;
+    step: number;
+    signal: AbortSignal;
+}, next: () => Promise<PreStepDecision>): Promise<PreStepDecision>;
+
+type PreStepDecision = { kind: 'reject' } | { kind: 'enter'; messages: UserMessage[]; ... };
+```
+
+官方文档描述（`@deepseek-ai/dsh-agent/README.md`）：**"`agent/pre-step` can reject a proposed
+step or replace the messages entering it"** —— 每轮注入就是用它"替换进入该步的消息"。
+
+正确写法（与第一方 `dsh-time-context` 逐行同形）：
+
+```js
+ctx.on("agent/pre-step", async ({ agent, messages, turn, step, signal }, next) => {
+  const decision = await next();                 // ① 先委托下游（添加上下文 ≠ 否决）
+  if (decision.kind !== "enter" || signal.aborted) return decision;
+  return {
+    ...decision,
+    messages: [...decision.messages, contextMessage],   // ② 往后追一条带来源的 UserMessage
+  };
+}, { prepend: true });
+```
+
+注入内容**必须**是 `@deepseek-ai/dsh-llm` 的 `UserMessage`（有 `id` + `source`），不能是裸对象：
+
+```js
+import { createUserMessage } from "@deepseek-ai/dsh-llm";
+createUserMessage({
+  content: [{ type: "text", text: hits }],
+  source: { kind: "plugin", plugin: "docs-recall", form: "snapshot",
+            sections: [{ name: "docs-recall", text: hits }] },
+});
+```
+
+`source.form` 的取值是一张官方表（`dsh-llm` 的 `ContextForm`）：`instructions` / `catalog` /
+`snapshot` / `notice` / `relay` / `recall`（其中 `recall` 专指"从别的会话日志里搬来的材料"，
+**不是**我们这种项目文档召回，故用 `snapshot`）。
+
+### 四处真实先例（本机可读，本适配器照抄其形状）
+
+| 先例 | 位置 | 做了什么 |
+|------|------|----------|
+| `@deepseek-ai/dsh-time-context`（第一方） | 全局 dsh 包内 | `pre-step` + `prepend:true`，每轮往后追一条 sourced `UserMessage` |
+| `@deepseek-ai/dsh-agent-instructions`（第一方） | 同上 | **首个** `pre-step` 把 `AGENTS.md` 基线折进进入批次 |
+| `@deepseek-ai/dsh-tool-skill`（第一方） | 同上 | `pre-step` 里比对 skill 目录 digest，变了就交给 `enter` 决策一条新目录消息 |
+| `dsh-mnemon`（第三方，用户 profile 已装） | `~/.dsh/profiles/web/node_modules/dsh-mnemon/lib/index.js` | `agent.ctx.on("agent/pre-step", …, { prepend: true })` 做**每轮记忆召回** |
+
+另外，`Claude Code` 的 `UserPromptSubmit` 钩子在 DSH 里也是被
+`@deepseek-ai/dsh-hooks-claude-code` **映射到 `agent/pre-step`** 的
+（其 README："`UserPromptSubmit` … are waterfalls that can reject the incoming action
+(`agent/pre-step` …)"）——这反过来印证了这个就是官方的"每轮"seam。
+
+### 备选（更简单，但不适合本项目）
+
+`agent.inject(userMessage)` 也能往上下文塞内容（`UserMessage` 的 `inject` 方法：
+"Queue model-facing context for the next pre-step without waking the driver"）。
+但它拿不到"本轮用户提交了什么文本"，只能盲注入；我们要按 prompt 做关键词召回，
+所以选 `pre-step`。
 
 ## 两种落地方式
 
 ### 方式 A（推荐，零新代码）：把本仓文档挂进 DSH 的上下文
 
-DSH 的上下文/系统提示由它自己的插件（如 `dsh-context`、`@deepseek-ai/dsh-system-prompt`）构成。
+DSH 的上下文/系统提示由它自己的插件（如 `dsh-agent-instructions`、`dsh-tool-skill`）构成。
 本仓的**静态约束**（日志/知识/领域/门禁）已经写在根 `AGENTS.md` 的 `KNOWLOG` 托管块里，
-被任何 agent 读取；DSH 侧只要保证工作目录是本仓、且按 `AGENTS.md` 行事即可。
+会被 `dsh-agent-instructions` 在**首个 `agent/pre-step`** 折进上下文（这正是上面表里的先例之一），
+所以 DSH 侧只要保证工作目录是本仓即可。
 
 **关键词召回**用命令行兜底（与其它 agent 完全同源）：
 
@@ -33,36 +113,87 @@ DSH 的上下文/系统提示由它自己的插件（如 `dsh-context`、`@deeps
 bash scripts/knowledge-retrieve.sh "<prompt 或代码片段>"
 ```
 
-### 方式 B：做一个真正的 DSH 召回桥接插件
+DSH **原生吃 skill**（`npx skills add <本 skill 的仓库或路径>` 装进去即可；本机已有先例：
+129 个 skill 都是这么装的）——所以"让 agent 认识 knowlog"不需要任何插件。
 
-`bridge/` 是这个桥接包的骨架（package.json + `dsh.bundle.patch` + cordis patch + `lib/index.js`）。
-它做的事和 Claude/Codex 的钩子一样：**每轮把 `scripts/recall-core.py` 的输出注入上下文**。
+### 方式 B：真正的 DSH 召回桥接插件（本目录 `bridge/`）
 
-### 已验证 vs 待确认（别混淆）
+桥接包把"每轮召回"接到上面那个官方 seam 上：
 
-| 项 | 状态 |
-|----|------|
-| patch 层写法 `- insert: [{id, name}]` | ✅ 已核实：抄自 `dsh-context/cordis.patch.yml`，且**实测** `dsh --profile web --patch .dsh/docs-recall.patch.yml --dump-config` 里出现 `- id: docs-recall`（exit 0） |
-| Cordis 插件惯用法（`ctx.effect` / `ctx.get(name,false)` / `ctx.inject`） | ✅ 已核实：来自 `dsh-context/lib/index.js` 的真实实现 |
-| DSH 原生把 skill 当一等上下文类别 | ✅ 已核实：`dsh-context/lib/index.d.ts` 的 `Category = 'user' \| 'inject' \| 'skill' \| …`，`<available_skills>` 与 skill 加载结果都算 `skill` 类 |
-| 每轮注入的官方调用名 | ⚠️ 待确认：`bridge/lib/index.js` 里唯一一处 `TODO_INJECT`（只探测 + 记录，不误改宿主；未识别时静默退出，用命令行兜底） |
+```
+adapters/dsh/bridge/
+├── package.json          # dsh.bundle.patch: "./cordis.patch.yml"
+├── cordis.patch.yml      # 包内 patch（`dsh plugin add` 路线用裸包名 docs-recall-dsh）
+├── lib/index.js          # 插件本体：注册 agent/pre-step，调 scripts/recall-core.py
+└── selftest.mjs          # 离线功能自测（16 条断言，不起 DSH）
+```
 
-**先说结论：在 DSH 上让 agent 认识 knowlog 不需要插件** —— DSH 原生吃 skill，
-`npx skills add <本 skill 的仓库或路径>` 装进去即可（本机已有先例：129 个 skill 都是这么装的）。
-插件只解决「每轮自动召回」，属加分项；不装也能用（`AGENTS.md` 托管块 + `knowledge-retrieve.sh` 兜底）。
+两条安装路线（**都不改宿主全局配置**，固化为默认行为需要你自己动 `~/.dsh`）：
 
 ```bash
-# 在 bridge/ 目录
-pnpm install                     # 或 npm/yarn
-dsh plugin --profile web add "$PWD"      # 把本地包加进 profile
-# 或者临时验证：
-dsh --profile web --patch cordis.patch.yml --dump-config | grep docs-recall
+# 路线 1（免 pnpm、项目内自包含）：patch 里写相对路径，DSH 会锚成 file://…/.dsh/bridge
+#   scripts/install-recall.sh --agent dsh 已经帮你落成这个形态
+dsh --profile web --patch .dsh/docs-recall.patch.yml --dump-config | grep -A6 docs-recall
+
+# 路线 2（装成包，与 dsh-context 同构）
+dsh plugin --profile web add "$PWD/adapters/dsh/bridge"
+# 然后 patch 里用裸包名 name: docs-recall-dsh
+dsh --profile web --patch adapters/dsh/cordis.patch.yml --dump-config | grep -A6 docs-recall
 ```
+
+**固化**（只改你自己的 profile，脚本不代劳）：把 patch 的 `insert` 段并进
+`$DSH_HOME/profiles/<profile>/cordis.patch.yml`。
+
+## ⚠️ 已验证 vs 未验证（别混淆）
+
+### 已验证（本机、非破坏性；一条命令可复现全部：`bash adapters/dsh/verify.sh`）
+
+| 项 | 证据（命令 → 结果） |
+|----|----------------------|
+| DSH 已安装、版本 | `command -v dsh` → `<nvm>/bin/dsh`；`dsh --version` → `0.1.6-alpha.2` |
+| `--dump-config` 是纯 dry-run（不 boot/不求值 `!!js`） | 读 `@deepseek-ai/dsh/dump-config-*.js` 源码原文 |
+| patch 写法 `- insert: [{id, name, config}]` | `dsh --profile web --patch adapters/dsh/cordis.patch.yml --dump-config` → exit 0，尾部出现 `- id: docs-recall` + `config{root, core, maxChars, minQueryChars}` |
+| 包内 patch（`dsh.bundle.patch` 指向的那份）同样可解析 | 同上，对 `bridge/cordis.patch.yml` 也 exit 0 |
+| `dsh.bundle.patch` 声明的路径**真的存在** | 用 DSH 自己的 `loadOverlayPatches` 解析 → `OK …/bridge/cordis.patch.yml entries=1`（**回归守卫**：路径写错会 fail-loud） |
+| 相对 `name: ./bridge` 被锚成 `file://` | `--dump-config` 输出 `name: file:///…/.dsh/bridge` |
+| `@deepseek-ai/dsh-llm` 在 profile 里可解析 | 从 `~/.dsh/profiles/web` 侧 `import('@deepseek-ai/dsh-llm')` → 列出 `createUserMessage` 等导出 |
+| 「每轮注入」= `agent/pre-step` waterfall | 读 `@deepseek-ai/dsh-agent/lib/types/runtime-types.d.ts` 的签名 + `PreStepDecision`；4 处真实实现（含用户已装的 `dsh-mnemon`）都用它 |
+| 插件**功能**正确（16 条断言） | `node adapters/dsh/bridge/selftest.mjs` → `16 passed, 0 failed`（假 ctx + 合成 payload 驱动真实监听器） |
+| 官方构造器分支也正确 | `verify.sh` V4 用 profile 侧解析跑同一套断言 → `16 passed, 0 failed`；缺包时走本地等价实现（与上游 `createMessage` 逐字一致） |
+| 找不到 `recall-core.py` 时完全静默退出 | selftest 断言：不注册任何监听器（不会弄坏宿主） |
+
+### 未验证（需要你参与的一次动作）
+
+| 项 | 为什么没验 | 怎么补 |
+|----|-----------|--------|
+| **真实会话里每轮注入生效** | 需要 boot 一个带模型的 DSH 会话（真发请求），且**必须把 patch 并进你的 profile** —— 这属于改宿主配置，脚本刻意不做 | 你把 `insert` 段并进 `$DSH_HOME/profiles/web/cordis.patch.yml`，开一次会话；设 `DOCS_RECALL_DEBUG=1` 后 `.dsh/docs-recall.log` 会出现 `turn N step 1: 注入 … chars` |
+| 相对 `name: ./bridge` 能被**加载**（不只是被锚定） | 只验到 `--dump-config` 的解析/锚定层，没 boot | 上面那次会话同时能覆盖；失败只影响这一行，删掉 patch 行即恢复 |
+| bundle 路线在全新 profile 上的行为 | 需要 `dsh plugin add`（会写 profile + 装包） | 需要时手动跑路线 2 |
+
+## 兜底路径（永远可用，与插件同一份召回核心）
+
+插件只是"自动召回"的加分项；**不装插件也完全能用**：
+
+```bash
+bash scripts/knowledge-retrieve.sh "<prompt 或代码片段>"     # 命令行召回
+git diff --cached | bash scripts/knowledge-retrieve.sh       # 拿暂存区当查询
+```
+
+`AGENTS.md` 的 `KNOWLOG` 托管块（静态约束）仍然是**默认必须**的那一层。
 
 ## 三档可靠性排序（选型建议）
 
 | 方案 | 是否自动 | 可靠性 | 适合谁 |
 |------|----------|--------|--------|
-| `AGENTS.md` 托管块（静态约束） | 每轮必读 | 高（各 agent 通用） | 所有人，默认必须 |
+| `AGENTS.md` 托管块（静态约束，经 `dsh-agent-instructions` 注入） | 每个会话首个 pre-step 必读 | 高（各 agent 通用） | 所有人，默认必须 |
 | 命令行召回 `knowledge-retrieve.sh` | 手动/由 agent 按规范调用 | 高（同一份 core） | 所有 agent 的兜底 |
-| bridge 插件（本目录） | 自动（每轮注入命中） | 中（依赖 DSH 插件 API 版本） | 想吃到"自动召回"的 DSH 用户 |
+| bridge 插件（本目录） | 自动（每轮 `pre-step` 注入命中） | 中（依赖 DSH 跨版本保持 `agent/pre-step` 契约） | 想吃到"自动召回"的 DSH 用户 |
+
+## 维护者备注
+
+- 机制若跨版本变了，**只有一处要改**：`bridge/lib/index.js` 里 `ctx.on("agent/pre-step", …)`
+  那一个监听器（注入点已单独抽出，不再有"探测 + 记录"式的模糊代码）。
+- 改了 `bridge/` 后跑 `bash adapters/dsh/verify.sh`（6 项，全部只读/dry-run/临时目录）。
+- `adapters/dsh/cordis.patch.yml` 是指向 `bridge/cordis.patch.yml` 的**软链接**：
+  前者给 `--patch` dry-run 用（路径短），后者是 `package.json` 里 `dsh.bundle.patch`
+  真正解析的那份（DSH 用 `join(packageDir, declared)`，不同级会 fail-loud）。改一处即可。
