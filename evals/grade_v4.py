@@ -186,10 +186,12 @@ elif EVAL == "eval-9":
           any(k in body for k in ("单测", "测试", "unit_test", "回归")), "")
     check("日志写了遗留风险（调拨/transfer/未覆盖）",
           any(k in body for k in ("调拨", "transfer", "遗留", "未覆盖", "还没")), "")
+    # 只检查"表格行"里的占位残留：索引说明文字里本来就会出现 <slug>、<YYYY-MM> 这类写法（不是残留）
+    table_rows = [ln for ln in idx_text().splitlines() if ln.strip().startswith("|")]
+    residue = [ln for ln in table_rows if re.search(r"(待填|待回填|<TODO>|<slug>|TODO)", ln)]
     check("索引同步且无占位残留",
-          any(f.replace("docs/", "") in idx_text() for f in new_logs)
-          and not re.search(r"(待填|待回填|<TODO>|<slug>)", idx_text()),
-          f"索引长度={len(idx_text())}")
+          any(f.replace("docs/", "") in idx_text() for f in new_logs) and not residue,
+          f"新增日志在索引={(any(f.replace('docs/', '') in idx_text() for f in new_logs))}；残留行={residue[:2]}")
     new_knowledge = [f for f in new if f.startswith("docs/knowledge/") and f.endswith(".md")]
     check("把可复用结论沉淀成知识并登记进索引",
           bool(new_knowledge) and any(knowledge_index_mentions(pathlib.Path(f).stem) for f in new_knowledge),
