@@ -111,7 +111,7 @@
 ## 5. 复现命令
 
 ```bash
-# ① 93 项确定性自测（不依赖模型，最快；CI 也跑这个）
+# ① 96 项确定性自测（不依赖模型，最快；CI 也跑这个）
 bash evals/test_scripts.sh
 
 # ② iteration-4：造夹具 + 六个用例 × 两配置，全部跑完并出对照表（串行，自带隔离残留修复）
@@ -137,5 +137,5 @@ python3 evals/grade_v4.py eval-8 "$D/without_skill" "$D/without_skill/grading.js
 | | `evals/test_scripts.sh` | 本文件的真实评测 |
 |---|---|---|
 | 测什么 | 脚本行为：布局/幂等/采纳/召回/体检/安装/打包/防泄露 | **模型行为**：给真实任务，agent 会不会照这套体系做 |
-| 依赖模型 | ❌ 纯确定性（93 项） | ✅ 需要跑 agent |
+| 依赖模型 | ❌ 纯确定性（96 项） | ✅ 需要跑 agent |
 | 何时跑 | 每次提交（CI + pre-commit） | 发版前 / 大改提示词与工作流后 |

@@ -148,4 +148,6 @@ print(f"📚 reindex-knowledge（布局：{layout}{' · dry-run' if not apply el
 print(f"   分端索引补齐：{added_end} 行 · 根索引补齐：{added_root} 行")
 if not apply and (added_end or added_root):
     print("\n执行：bash scripts/reindex-knowledge.sh --apply")
+if apply and (added_end or added_root):
+    print("\n📝 补完记得记一笔（「我补了哪些索引、为什么之前漏了」值得留给未来）：bash scripts/new-daily-log.sh reindex-knowledge-index")
 PY

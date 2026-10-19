@@ -236,6 +236,20 @@ bash scripts/new-daily-log.sh older-log 2026-08-03 >/dev/null
 # 直接查真实文件，避免中间文件与转义干扰
 chk "补更早月份后仍保持年内降序（2026-11 在 2026-08 之前）" 'A=$(grep -n "^### 2026-11" docs/index.md | cut -d: -f1); B=$(grep -n "^### 2026-08" docs/index.md | cut -d: -f1); [ -n "$A" ] && [ -n "$B" ] && [ "$A" -lt "$B" ]'
 
+hdr "T8b 修完记一笔（评测真实发现：修了漂移却没人留记录）"
+P="$SB/t8b-record-hint"; mkproj "$P"
+bash "$SKILL/scripts/bootstrap-docs.sh" --root "$P" --project-name "记一笔" >/dev/null 2>&1
+cd "$P"
+mkdir -p docs/logs && echo "# 2026-07-01 旧日志" > docs/logs/2026-07-01-legacy.md
+bash scripts/adopt-docs.sh --apply > "$SB/adopt-out.txt" 2>&1
+chk "采纳（迁移历史文档）后提示记一笔" 'grep -q "记一笔" "$SB/adopt-out.txt"'
+printf '# 孤儿知识\n' > docs/knowledge/troubleshooting/orphan-doc.md
+bash scripts/reindex-knowledge.sh --apply > "$SB/reindex-out.txt" 2>&1
+chk "补齐知识索引后提示记一笔" 'grep -q "记一笔" "$SB/reindex-out.txt"'
+rm -f scripts/new-daily-log.sh
+bash scripts/docs-doctor.sh > "$SB/doctor-out.txt" 2>&1 || true
+chk "体检失败时提示记一笔（附可跑命令）" 'grep -q "new-daily-log.sh fix-doc-drift" "$SB/doctor-out.txt"'
+
 hdr "T9 标记宽容性（说明文字被改过也要认得）"
 P="$SB/t9-marker"; mkproj "$P"; cd "$P"; git init -q . >/dev/null 2>&1
 bash "$SKILL/scripts/bootstrap-docs.sh" --root "$P" --project-name "标记宽容" >/dev/null 2>&1

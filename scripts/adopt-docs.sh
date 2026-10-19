@@ -183,7 +183,8 @@ if util:
 else:
     print("\n⚠️  未找到 scripts/index-util.py（索引未登记）→ 请重跑 bootstrap-docs.sh 后再跑本脚本")
 
-print("\n下一步：")
+print("\n下一步（第 0 步别漏：迁移本身就是该记一笔的事）：")
+print("  0. 记一笔（写清你动了哪些历史文件）：bash scripts/new-daily-log.sh adopt-legacy-docs")
 print("  1. 补齐体系并生成门禁：bash scripts/bootstrap-docs.sh")
 print("  2. 校验：bash scripts/check-daily-index.sh --strict --fix-hint")
 print("  3. 历史月份若故意不登记：LEGACY_MONTHS=\"2026-04 2026-05\" bash scripts/check-daily-index.sh")

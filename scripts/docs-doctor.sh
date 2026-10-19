@@ -76,6 +76,9 @@ if [ "$FAILED" -eq 1 ]; then
   echo "     · 日志散落/月份不符    → bash scripts/check-daily-index.sh --fix-hint"
   echo "     · 知识未登记/死链      → bash scripts/check-knowledge-index.sh --fix-hint"
   echo "     · 体系外的旧日志       → bash scripts/adopt-docs.sh（先看计划，再 --apply）"
+  echo
+  echo "  📝 修完别漏一步：给这次修复记一笔 —— 「我修了什么、为什么」正是留给未来自己的信息。"
+  echo "     bash scripts/new-daily-log.sh fix-doc-drift   # slug 自取；索引行会自动插好"
   exit 1
 fi
 echo "✅ 体检通过：结构规范、日志与知识索引全部一致。"
