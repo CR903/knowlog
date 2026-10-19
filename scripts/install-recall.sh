@@ -239,16 +239,17 @@ for a in agents:
                          "若要每轮关键词召回，需 v1 插件 API —— 设 DOCS_RECALL_OPENCODE_V1_PLUGIN=1 再跑一次")
     elif a == "dsh":
         put_from(ad / "dsh" / "README.md", ".dsh/docs-recall-README.md")
-        # 桥接插件整包落地：patch 里写 `name: ./bridge` 即可免 pnpm 安装直接加载
-        # （DSH 会把相对 name 锚成 file://…/.dsh/bridge —— 见 adapters/dsh/verify.sh V5）
+        # 桥接插件整包落地：patch 里写 `name: ./bridge/lib/index.js` 即可免 pnpm 安装直接加载
+        # （DSH 会把相对 name 锚成 file://…；必须以**入口文件**结尾，目录导入 ESM 不支持 —— verify.sh V5）
         put_tree(ad / "dsh" / "bridge", ".dsh/bridge")
         # 项目内 patch 用免安装路线（与其它 agent 适配器一样：只动项目、不装全局包）
         put(".dsh/docs-recall.patch.yml", """\
 # docs-recall-dsh 的项目内 patch 层 —— 每轮把 knowlog 召回结果注入 DSH 上下文。
 #
-# 免安装路线：name 写成相对本文件的 ./bridge，DSH 会锚成 file://…/.dsh/bridge，
-# 不需要 `dsh plugin add`，也不动 ~/.dsh 里的宿主配置。
-# 换成已安装的包时改成： name: docs-recall-dsh
+# 免安装路线：name 写相对本文件的**入口文件** ./bridge/lib/index.js，
+# DSH 会锚成 file://…/.dsh/bridge/lib/index.js —— 不需要 `dsh plugin add`，也不动 ~/.dsh。
+# ⚠️ 必须指到**文件**而不是目录：Node ESM 不支持目录导入（ERR_UNSUPPORTED_DIR_IMPORT），
+#    指目录会让插件静默加载失败（真机踩过）。走 bundle 安装（dsh plugin add）时才用裸包名。
 #
 # 验证（只读、dry-run，不会 boot、不会改配置）：
 #   dsh --profile web --patch .dsh/docs-recall.patch.yml --dump-config | grep -A6 docs-recall
@@ -256,7 +257,7 @@ for a in agents:
 #   把下面 insert 段并进 $DSH_HOME/profiles/<profile>/cordis.patch.yml
 - insert:
     - id: docs-recall
-      name: ./bridge
+      name: ./bridge/lib/index.js
       config:
         # 相对项目根（DSH 在项目工作区启动时解析）
         root: "."
@@ -265,7 +266,7 @@ for a in agents:
         minQueryChars: 4
 """)
         notes.append("DSH 的每轮注入机制 = `agent/pre-step` waterfall（已在 adapters/dsh/verify.sh 中非破坏性验证）；"
-                     "桥接插件已放在 .dsh/bridge/，patch 已写在 .dsh/docs-recall.patch.yml（name: ./bridge，免安装）。\n"
+                     "桥接插件已放在 .dsh/bridge/，patch 已写在 .dsh/docs-recall.patch.yml（name: ./bridge/lib/index.js，免安装）。\n"
                      "        · 先 dry-run：dsh --profile web --patch .dsh/docs-recall.patch.yml --dump-config | grep -A6 docs-recall\n"
                      "        · 要真生效：把 .dsh/docs-recall.patch.yml 的 insert 段并进 $DSH_HOME/profiles/<profile>/cordis.patch.yml"
                      "（这一步只改你自己的 profile，脚本不代劳）\n"
