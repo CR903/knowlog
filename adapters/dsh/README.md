@@ -77,6 +77,31 @@ createUserMessage({
 `snapshot` / `notice` / `relay` / `recall`（其中 `recall` 专指"从别的会话日志里搬来的材料"，
 **不是**我们这种项目文档召回，故用 `snapshot`）。
 
+### 两个真实宿主约束（本机实测踩过，必须知道）
+
+1. **`web` profile 是常驻进程**（launchd 托管，本机 `com.dsh.doctor`），而且它的 **cwd 是 `/`**。
+   两个直接后果：
+   - 改完 profile 或插件代码后**必须重启**才生效（进程启动时只加载一次）：
+     ```bash
+     launchctl kickstart -k gui/$(id -u)/com.dsh.doctor     # 重启 DSH 服务（会断开当前会话）
+     ```
+   - **绝不能在 `apply()` 里用进程 cwd 定位项目**：那会是 `/`，插件在任何项目里都失效。
+     正确姿势是**每一轮**问官方服务要该会话的工作目录：
+     ```js
+     const dir = await ctx.workingDirectory.ensure(agent, signal);   // 服务来自 @deepseek-ai/dsh-working-directory
+     ```
+     第一方 `dsh-tool-skill` 就是这么拿 cwd 的。本插件的兜底顺序：
+     **显式绝对 `config.root` → `workingDirectory.ensure` → `agent.session.meta.cwd` → 进程 cwd**。
+
+2. **两处日志，别找错地方**（都要 `DOCS_RECALL_DEBUG=1`）：
+   | 日志 | 位置 | 说明什么 |
+   |---|---|---|
+   | 加载/卸载 | `~/.dsh/docs-recall.log`（即 `$DSH_HOME`） | **插件有没有被加载** —— 没这行就说明 profile 没生效或没重启 |
+   | 每轮注入 | `<项目>/.dsh/docs-recall.log` | **这一轮有没有注入**，以及注入了多少字符、用的哪个 root |
+
+   验证时要**在会话里发一句带代码标识符的话**（召回表按标识符命中，例如 `帮我看看 codeMode 的扣减逻辑`）；
+   在会话里敲 shell 命令（如 `DOCS_RECALL_DEBUG=1 dsh --profile web`）会被当成聊天内容发给模型，不会启动任何东西。
+
 ### 四处真实先例（本机可读，本适配器照抄其形状）
 
 | 先例 | 位置 | 做了什么 |
@@ -166,7 +191,7 @@ dsh --profile web --patch adapters/dsh/cordis.patch.yml --dump-config | grep -A6
 
 | 项 | 为什么没验 | 怎么补 |
 |----|-----------|--------|
-| **真实会话里每轮注入生效** | 需要 boot 一个带模型的 DSH 会话（真发请求），且**必须把 patch 并进你的 profile** —— 这属于改宿主配置，脚本刻意不做 | 你把 `insert` 段并进 `$DSH_HOME/profiles/web/cordis.patch.yml`，开一次会话；设 `DOCS_RECALL_DEBUG=1` 后 `.dsh/docs-recall.log` 会出现 `turn N step 1: 注入 … chars` |
+| **真实会话里每轮注入生效** | 需要 boot 一个带模型的 DSH 会话（真发请求）。patch 已可由用户并进 profile（本机已并，带备份） | ① `launchctl kickstart -k gui/$(id -u)/com.dsh.doctor` 重启服务；② 看 `~/.dsh/docs-recall.log` 出现 `plugin loaded`（证明加载）；③ 在**会话里**发 `帮我看看 codeMode 的扣减逻辑`；④ 看 `<项目>/.dsh/docs-recall.log` 出现 `turn 1 step 1: 注入 … chars` |
 | 相对 `name: ./bridge` 能被**加载**（不只是被锚定） | 只验到 `--dump-config` 的解析/锚定层，没 boot | 上面那次会话同时能覆盖；失败只影响这一行，删掉 patch 行即恢复 |
 | bundle 路线在全新 profile 上的行为 | 需要 `dsh plugin add`（会写 profile + 装包） | 需要时手动跑路线 2 |
 

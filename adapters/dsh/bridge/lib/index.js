@@ -37,8 +37,9 @@
 
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { appendFileSync, existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { appendFileSync, existsSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { isAbsolute, join, resolve } from "node:path";
 
 /** 插件名：同时是 `source.plugin` 的取值，宿主按它归属上下文。 */
 export const name = "docs-recall";
@@ -51,7 +52,19 @@ const DEFAULT_MIN_QUERY_CHARS = 4;
 function log(root, line) {
   if (process.env.DOCS_RECALL_DEBUG !== "1") return;
   try {
-    appendFileSync(join(root, ".dsh", "docs-recall.log"), `[${new Date().toISOString()}] ${line}\n`);
+    const dir = join(root, ".dsh");
+    mkdirSync(dir, { recursive: true });
+    appendFileSync(join(dir, "docs-recall.log"), `[${new Date().toISOString()}] ${line}\n`);
+  } catch {}
+}
+
+/** 宿主级日志（加载/卸载/异常兜底）：直接写 <DSH_HOME>/docs-recall.log，路径可预期。 */
+function logHost(line) {
+  if (process.env.DOCS_RECALL_DEBUG !== "1") return;
+  try {
+    const dir = process.env.DSH_HOME || join(homedir(), ".dsh");
+    mkdirSync(dir, { recursive: true });
+    appendFileSync(join(dir, "docs-recall.log"), `[${new Date().toISOString()}] ${line}\n`);
   } catch {}
 }
 
@@ -115,19 +128,36 @@ function alreadyInjected(messages) {
 }
 
 export function apply(ctx, config = {}) {
-  const root = resolve(config.root ?? ".");
   const core = config.core ?? "scripts/recall-core.py";
   const maxChars = Number.isFinite(config.maxChars) ? config.maxChars : DEFAULT_MAX_CHARS;
   const minQueryChars = Number.isFinite(config.minQueryChars) ? config.minQueryChars : DEFAULT_MIN_QUERY_CHARS;
+  const configuredRoot = typeof config.root === "string" ? config.root.trim() : "";
 
-  if (!existsSync(join(root, core))) {
-    log(root, `未找到召回核心 ${core} → 插件保持静默（用命令行兜底 knowledge-retrieve.sh）`);
-    return;
-  }
   if (typeof ctx?.on !== "function") return; // 非 Cordis 宿主 → 安静退出
 
   // 每个 agent 记住上一次注入的文本：同一份命中不重复占上下文。
   const lastHint = new WeakMap();
+  const warned = new Set();                  // 同一个目录只提醒一次，别每轮刷日志
+
+  /**
+   * 解析**本次会话**的项目根。
+   *
+   * 为什么不能像最初那样在 apply() 里 `resolve(".")`：web profile 是**常驻进程**，
+   * 它的 cwd 往往是 `/` 或 `~`（本机实测 cwd=/），于是插件会在加载时就去检查
+   * `/scripts/recall-core.py`、找不到便直接 return —— 在任何项目里都失效。
+   * 官方姿势是问 workingDirectory 服务要该 agent 的工作目录（第一方 dsh-tool-skill 同款），
+   * 兜底顺序：显式绝对配置 → workingDirectory → session 元数据里的 cwd → 进程 cwd。
+   */
+  async function projectRoot(agent, signal) {
+    if (configuredRoot && isAbsolute(configuredRoot)) return configuredRoot;
+    try {
+      const dir = await ctx.workingDirectory?.ensure?.(agent, signal);
+      if (typeof dir === "string" && dir) return dir;
+    } catch { /* 服务缺失或失败 → 继续兜底 */ }
+    const metaCwd = agent?.session?.meta?.cwd;
+    if (typeof metaCwd === "string" && metaCwd) return metaCwd;
+    return resolve(configuredRoot || ".");
+  }
 
   /**
    * 每轮注入。prepend:true 表示先注册、先跑 → `next()` 拿到的是所有下游
@@ -136,6 +166,7 @@ export function apply(ctx, config = {}) {
    */
   const disposeListener = ctx.on("agent/pre-step", async ({ agent, messages, turn, step, signal }, next) => {
     const decision = await next();
+    let root = "";
     try {
       if (decision?.kind !== "enter" || signal?.aborted) return decision;
       if (step !== 1) return decision;                        // 每轮只在首个 step 召回
@@ -144,6 +175,15 @@ export function apply(ctx, config = {}) {
 
       const query = directUserText(messages) || directUserText(decision.messages);
       if (query.replace(/\s+/g, "").length < minQueryChars) return decision;
+
+      root = await projectRoot(agent, signal);
+      if (!existsSync(join(root, core))) {
+        if (!warned.has(root)) {
+          warned.add(root);
+          log(root, `会话目录里没有召回核心 ${core}（root=${root}）→ 本轮起静默；命令行兜底 knowledge-retrieve.sh`);
+        }
+        return decision;
+      }
 
       const hint = recall(root, core, query, maxChars);
       if (!hint) return decision;
@@ -160,22 +200,23 @@ export function apply(ctx, config = {}) {
       });
 
       lastHint.set(agent, hint);
-      log(root, `turn ${turn} step ${step}: 注入 ${hint.length} chars（${create ? "官方 createUserMessage" : "本地等价实现"}）`);
+      log(root, `turn ${turn} step ${step}: 注入 ${hint.length} chars（${create ? "官方 createUserMessage" : "本地等价实现"}）root=${root}`);
       return { ...decision, messages: [...decision.messages, context] };
     } catch (error) {
-      log(root, `pre-step 注入失败（已忽略）：${error?.message ?? error}`);
+      if (root) log(root, `pre-step 注入失败（已忽略）：${error?.message ?? error}`);
+      else logHost(`pre-step 解析会话目录失败（已忽略）：${error?.message ?? error}`);
       return decision;
     }
   }, { prepend: true });
 
   if (typeof ctx.effect === "function") {
     ctx.effect(() => () => {
-      log(root, `plugin unloaded（root=${root} core=${core}）`);
+      logHost(`plugin unloaded（core=${core}）`);
       disposeListener?.();
     }, "docs-recall: dispose pre-step listener");
   }
 
-  log(root, `plugin loaded（root=${root} core=${core} maxChars=${maxChars}）`);
+  logHost(`plugin loaded（core=${core} maxChars=${maxChars}；会话目录按每轮解析）`);
 }
 
 export default apply;
