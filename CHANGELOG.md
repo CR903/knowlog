@@ -2,7 +2,7 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## Unreleased
+## 0.3.1 — 2026-10-19
 
 **安全防线 + 升级路径 + 首次分发后的文档校正**（0.3.0 之后的增量，接口不变）
 

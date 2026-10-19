@@ -1,7 +1,7 @@
 {
   "name": "knowlog",
   "displayName": "知录",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "给任何项目建立并维护一套会自我校验的文档体系：任务日志 + 结构化知识库 + 领域上下文 + 索引 + 门禁 + 关键词召回（跨 Claude Code / Codex / OpenCode / Cursor / Gemini / Copilot / DSH）",
   "license": "MIT",
   "type": "skill",
@@ -17,14 +17,20 @@
   "platforms": {
     "claude-code": {
       "kind": "skill-dir",
-      "scope": ["user", "project"],
+      "scope": [
+        "user",
+        "project"
+      ],
       "userPath": "~/.claude/skills/knowlog",
       "projectPath": ".claude/skills/knowlog",
       "recall": "hook:UserPromptSubmit"
     },
     "opencode": {
       "kind": "skill-dir",
-      "scope": ["user", "project"],
+      "scope": [
+        "user",
+        "project"
+      ],
       "userPath": "~/.config/opencode/skills/knowlog",
       "projectPath": ".opencode/skills/knowlog",
       "recall": "config:opencode.json#instructions"

@@ -1,6 +1,6 @@
 {
   "name": "knowlog",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "知录（knowlog）：给任何项目建立并维护一套会自我校验的文档体系 —— 任务日志 + 结构化知识库 + 领域上下文 + 索引 + 门禁 + 关键词召回",
   "keywords": [
     "knowlog",
@@ -28,21 +28,27 @@
     "scripts/",
     "assets/",
     "adapters/",
-    "references/"
+    "references/",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=18"
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/CR903/knowlog.git"
+    "url": "git+https://github.com/CR903/knowlog.git"
   },
   "scripts": {
     "test": "bash evals/test_scripts.sh",
-    "package": "bash scripts/package-skill.sh"
+    "package": "bash scripts/package-skill.sh",
+    "prepublishOnly": "bash evals/test_scripts.sh && bash scripts/check-secrets.sh"
   },
   "homepage": "https://github.com/CR903/knowlog",
   "bugs": {
     "url": "https://github.com/CR903/knowlog/issues"
+  },
+  "author": "CR903",
+  "publishConfig": {
+    "access": "public"
   }
 }
