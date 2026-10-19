@@ -7,13 +7,10 @@
  *   （收尾记日志、CI 门禁）。CLI 只做"发现 payload + 转发命令 + 打印下一步"，避免同一逻辑两份实现。
  *   → 也正因为这样，本 CLI **零依赖**：node 直接跑 `bin/knowlog.mjs` 即可（只需要 bash + node）。
  *
- * ⚠️ 本包**未发布到 npm**，所以 `npx knowlog …` 不成立（npm 上还没有这个包名；
- *    也请勿依赖它 —— 万一包名被别人抢注，`npx knowlog` 会执行陌生代码）。
- *
- * 调用方式（用已安装路径）：
- *   K=~/.agents/skills/knowlog            # `npx skills add CR903/knowlog` 的落点
+ * 调用方式（二选一）：
+ *   npx knowlog init --agent auto         # 走 npm 上正式发布的包（0.3.1 起）
+ *   K=~/.agents/skills/knowlog            # 或直接跑已安装的这份（`npx skills add CR903/knowlog` 的落点）
  *   node $K/bin/knowlog.mjs init --agent auto
- *   # 想少打字：alias knowlog='node ~/.agents/skills/knowlog/bin/knowlog.mjs'
  *
  * 用法：
  *   knowlog init [--agent auto|claude,opencode] [--root DIR] [--dry-run]
@@ -73,7 +70,7 @@ function parseFlags(argv) {
 const HELP = `
 ${C.b}knowlog${C.x} v${version()} — 项目文档体系（日志 / 知识库 / 领域上下文 / 索引 / 召回）
 
-${C.dim}调用（本包未发布 npm，用已安装路径）：K=~/.agents/skills/knowlog && node $K/bin/knowlog.mjs <命令>${C.x}
+${C.dim}调用：npx knowlog <命令>；或已安装路径 node ~/.agents/skills/knowlog/bin/knowlog.mjs <命令>${C.x}
 
 ${C.b}最常用${C.x}
   knowlog init [--agent auto] [--root DIR] [--dry-run]    给当前项目建/补齐文档体系（含收尾门禁）

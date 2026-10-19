@@ -48,7 +48,7 @@ git push origin main --tags
 
 ## 3. 发布后：把文档改回短形式
 
-npm 上有了 `knowlog` 之后，才能把 `node ~/.agents/skills/knowlog/bin/knowlog.mjs <cmd>` 换回 `npx knowlog <cmd>`：
+> 0.3.1 已经做过这一步（文档现在统一写 `npx knowlog <cmd>`）。以后若长期不发布、或换了包名，才需要回退文档。
 
 ```bash
 grep -rln "node ~/.agents/skills/knowlog/bin/knowlog.mjs" README.md SKILL.md references/ bin/

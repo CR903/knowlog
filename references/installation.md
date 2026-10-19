@@ -87,7 +87,7 @@ bash scripts/package-skill.sh --out ./dist    # 自定义输出目录
 | 方式 | 用户要做的 | 跨 agent | 可升级 | 适合 |
 |------|-----------|----------|--------|------|
 | **① `npx skills add https://github.com/CR903/knowlog`**（推荐） | 一条命令 | ✅ 自动装到 40+ agent 的 skill 目录 + 建软链 | ✅ `npx skills update`（按 `skillFolderHash` 比对） | 绝大多数人 |
-| ② `node ~/.agents/skills/knowlog/bin/knowlog.mjs init`（自带 CLI） | 一条命令 | ⚠️ 装"本项目"的文档体系；agent 侧要再 `install-skill --agent auto` | 重跑即升级 | 只想给"某个项目"搭体系、不关心全局 skill |
+| ② `npx knowlog init`（自带 CLI，已发 npm） | 一条命令 | ⚠️ 装"本项目"的文档体系；agent 侧要再 `install-skill --agent auto` | 重跑即升级 | 只想给"某个项目"搭体系、不关心全局 skill |
 | ③ 给 `.skill` 包 / 目录（离线） | 解压 + `bash scripts/install-skill.sh --agent auto` | ✅ 但要用户跑脚本 | 手动重新解压 | 内网、无 npm、无外网 |
 
 ### 为什么首选 ①（而不是 npm 发包）
@@ -98,12 +98,12 @@ bash scripts/package-skill.sh --out ./dist    # 自定义输出目录
   并写进 `~/.agents/.skill-lock.json`（`sourceType: "local"` + `skillFolderHash`），`skills list` 可见。
 - 用户不需要 npm 账号、不需要我们维护发布流程；**一个公开 git 仓库就够**（`skills add` 支持 `owner/repo`、
   GitHub URL、Notion 页面 URL、本地路径）。
-- npm 只作为**安装器的分发方式**（`npx skills@latest`）；**我们自己的 CLI 暂不发布 npm** —— 调用姿势是
-  `node ~/.agents/skills/knowlog/bin/knowlog.mjs …`，**不是** `npx knowlog`（后者 404；包名若被抢注还会执行陌生代码）。
+- npm 在这里有两个身份：**安装器**（`npx skills@latest`）与 **CLI 的分发**（`npx knowlog`，0.3.1 起发布，
+  顺带把包名占了、消除被抢注的风险）。skill **本体**仍然只走 git 仓库 —— 因为 skill 的本质是文件。
 
 ### 怎么做到"傻瓜式"（本次已实现的细节）
 
-1. **一条命令搞定多半事**：`node ~/.agents/skills/knowlog/bin/knowlog.mjs init --agent auto`
+1. **一条命令搞定多半事**：`npx knowlog init --agent auto`
    = 建结构 + 装脚本 + 写 `AGENTS.md` 托管块 + 装各 agent 召回适配器 + 自检（`--dry-run` 可先看计划）。
 2. **不改用户的配置除非明说**：`init` 不带 `--agent` 时只搭项目结构，不碰 `.claude/settings.json`、`opencode.json` 等。
 3. **零依赖 + 零构建**：CLI 是纯 Node 标准库（`bin/knowlog.mjs`），payload 是 bash + python3 脚本 ——
@@ -112,10 +112,9 @@ bash scripts/package-skill.sh --out ./dist    # 自定义输出目录
 5. **先看后做**：`--dry-run`（init）、默认 dry-run（adopt）、`--fix-hint`（doctor）—— 降低"不敢跑"的心理成本。
 6. **README 里给三条命令**（建/记/体检），别给十个参数：
    ```bash
-   K=~/.agents/skills/knowlog
-   node $K/bin/knowlog.mjs init --agent auto     # 搭好
-   node $K/bin/knowlog.mjs add <slug>            # 收尾记一笔（= log）
-   node $K/bin/knowlog.mjs doctor                # 体检
+   npx knowlog init --agent auto     # 搭好
+   npx knowlog add <slug>            # 收尾记一笔（= log）
+   npx knowlog doctor                # 体检
    ```
 
 ## 需要自造一个 skill 管理器吗？
@@ -165,7 +164,7 @@ bash scripts/package-skill.sh --out ./dist    # 自定义输出目录
   ```bash
   # 从"已安装的 skill"跑，而不是项目内那份（后者等于自拷，不会有变化）
   bash ~/.agents/skills/knowlog/scripts/bootstrap-docs.sh --root . --force-scripts
-  # 或用 CLI：node ~/.agents/skills/knowlog/bin/knowlog.mjs init --agent auto   （CLI 随已安装的 skill 一起更新）
+  # 或用 CLI：npx knowlog init --agent auto   （CLI 随 npm 包更新；也可用已安装 skill 里的那份）
   ```
 - 布局切换（flat ⇄ by-end）：见 `maintenance.md §2.5`，老文档不会自动搬家。
 - 卸载：删掉安装目录（`~/.claude/skills/knowlog/` 等）即可；项目内的体系是**你的资产**，不随 skill 删除而消失（这是刻意的：skill 是工具，文档体系是项目的一部分）。

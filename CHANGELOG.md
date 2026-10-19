@@ -14,8 +14,9 @@
   旧标记 `DOCS-SYSTEM` 迁移**只规范化标记行、块内内容原样保留**；标记识别改**前缀/正则**（说明文字被改过也认得）；
   判"手工区是否已存在"时**先剥离托管块**。
 - 🐛 **确定性自测 93 项**（0.3.0 时 84 项）。
-- 📄 **文档校正**：CLI 的真实调用方式（**未发布 npm → 不要用 `npx knowlog`**，改用 `node <已安装 skill>/bin/knowlog.mjs …`）；
-  `knowlog add` 作为 `log` 的别名；`-h/--help` 不再透传给脚本；自测项数、升级命令、clone 后启用钩子的说明。
+- 📦 **发布到 npm**：`npx knowlog …` 从本版起可用（顺带占住包名，消除被抢注的风险）；不想用 npx 仍可
+  `node <已安装 skill>/bin/knowlog.mjs …`。新增 `RELEASE.md`（发版清单）。
+- 📄 **文档校正**：`knowlog add` 作为 `log` 的别名；`-h/--help` 不再透传给脚本；自测项数、升级命令、clone 后启用钩子的说明。
 - 🧪 **新增 CI**：`.github/workflows/ci.yml`（push / PR 跑确定性自测 + 密钥扫描）。
 - 📊 **评测结论落盘**：`evals/RESULTS.md`（三轮结论 + 复现命令 + 已知评测设计缺陷）。
 

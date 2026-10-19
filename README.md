@@ -32,15 +32,13 @@ git clone https://github.com/CR903/knowlog ~/.local/share/knowlog && bash ~/.loc
 ## 给某个项目落地（三条命令）
 
 ```bash
-K=~/.agents/skills/knowlog        # `skills add` 的落点（也可用你机器上的实际路径）
-node $K/bin/knowlog.mjs init --agent auto   # ① 建结构 + 装脚本 + 写 AGENTS.md 托管块 + 装各 agent 召回 + 自检
-node $K/bin/knowlog.mjs add <slug>          # ② 收尾记一笔（自动落 <月份> 目录 + 在索引里插好行；add 是 log 的别名）
-node $K/bin/knowlog.mjs doctor              # ③ 体检：结构规范 + 日志↔索引 + 知识↔索引（--fix-hint 给修复命令）
+npx knowlog init --agent auto     # ① 建结构 + 装脚本 + 写 AGENTS.md 托管块 + 装各 agent 召回 + 自检
+npx knowlog add <slug>            # ② 收尾记一笔（自动落 <月份> 目录 + 在索引里插好行；add 是 log 的别名）
+npx knowlog doctor                # ③ 体检：结构规范 + 日志↔索引 + 知识↔索引（--fix-hint 给修复命令）
 ```
 
-> ⚠️ **别用 `npx knowlog`**：本 skill 只走 `skills add` 分发、**尚未发布到 npm**，`npx knowlog` 会 `404`
-> （而且万一 `knowlog` 这个包名被别人抢注，`npx knowlog` 就会执行陌生代码）。想少打字就加个别名：
-> `alias knowlog='node ~/.agents/skills/knowlog/bin/knowlog.mjs'`。
+> 不想走 `npx` 也行：CLI 就在已安装的 skill 里 —— `node ~/.agents/skills/knowlog/bin/knowlog.mjs <命令>`。
+> （`npx knowlog` 走 npm 上正式发布的包；0.3.0 及更早没发布 npm，那时只有 `node` 这条路。）
 
 > 更省事的日常姿势：`init` 之后项目里就有全套 `scripts/`，直接用它 —— `bash scripts/new-daily-log.sh <slug>`、`bash scripts/docs-doctor.sh`。
 
@@ -70,7 +68,7 @@ node $K/bin/knowlog.mjs doctor              # ③ 体检：结构规范 + 日志
 knowlog/
 ├── SKILL.md              # 给 agent 的三条工作流（搭建 / 收尾记日志 / 体检修复）
 ├── VERSION
-├── bin/knowlog.mjs       # 零依赖 CLI（node bin/knowlog.mjs …；未发布 npm），只是转发下面的脚本
+├── bin/knowlog.mjs       # 零依赖 CLI（npx knowlog … 或 node bin/knowlog.mjs …），只是转发下面的脚本
 ├── scripts/              # 真正干活的全套脚本（bash + python3，项目里也会各存一份）
 │   ├── bootstrap-docs.sh       # 搭/补建体系（幂等；flat/by-end 自适应；自包含 assets）
 │   ├── new-daily-log.sh        # 记日志（落月份目录 + 插索引行）
