@@ -2,6 +2,18 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## Unreleased
+
+**评测方法（iteration-4）**：修掉 iteration-3 暴露的三个设计缺陷，让"这套 skill 到底有没有用"这个问题第一次有了**可信**的答案。
+
+- 🧪 夹具重做（`evals/build_fixtures_v4.sh`）：**不再把已建好的体系塞进夹具**（那是 iter-3 出现 0 差异的根因），
+  只给原始素材（代码 + 散落/异构旧文档 + 刚做完的任务描述）。
+- 🔒 基线机械隔离（`evals/run_case.sh`）：跑基线时把已安装的 skill 临时移开 + `--disable-slash-commands` 双保险，
+  移开失败直接中止；隔离证据写进 `run_meta.json`。
+- 📋 人工量表（`evals/review-rubric.md`）：新增 3 条人工维度（日志重点 / 知识可复用 / 尊重既有约定），
+  `grade_v4.py` 自动生成 `manual_review.md` 骨架 —— 避免只用结构断言把"形状不同"冤枉成"质量更差"。
+- 📊 `evals/RESULTS.md` 记录试点结果与**已知干扰**（第三方钩子 `.remember/` 污染、隔离会临时改全局状态、模型路由影响可比性）。
+
 ## 0.3.1 — 2026-10-19
 
 **安全防线 + 升级路径 + 首次分发后的文档校正**（0.3.0 之后的增量，接口不变）
