@@ -2,21 +2,41 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## Unreleased
+## 0.3.2 — 2026-10-19
 
-**评测方法（iteration-4）**：修掉 iteration-3 暴露的三个设计缺陷，让"这套 skill 到底有没有用"这个问题第一次有了**可信**的答案。
+**DSH 适配器可用 + 评测方法可信 + 安装模板修复**（0.3.1 之后的增量，接口不变）
 
-- 🧪 夹具重做（`evals/build_fixtures_v4.sh`）：**不再把已建好的体系塞进夹具**（那是 iter-3 出现 0 差异的根因），
-  只给原始素材（代码 + 散落/异构旧文档 + 刚做完的任务描述）。
-- 🔒 基线机械隔离（`evals/run_case.sh`）：跑基线时把已安装的 skill 临时移开 + `--disable-slash-commands` 双保险，
-  移开失败直接中止；隔离证据写进 `run_meta.json`。
-- 📋 人工量表（`evals/review-rubric.md`）：新增 3 条人工维度（日志重点 / 知识可复用 / 尊重既有约定），
-  `grade_v4.py` 自动生成 `manual_review.md` 骨架 —— 避免只用结构断言把"形状不同"冤枉成"质量更差"。
-- 📊 `evals/RESULTS.md` 记录试点结果与**已知干扰**
-- 📊 **iteration-4 跑完三个用例**（带/不带各一次，串行 + 机械隔离）：**结构断言 25/25 vs 13/25**、**人工量表 18/18 vs 15/18**。
-  结论：**增量在「可校验的约束与索引」，不在「帮你写字」** —— eval-7 从零搭差距最大（9:0），eval-9 体系已装好后两者打平（7:7 / 6:6）。
-  同时记下一条教训：**断言误伤会同时压低两边**（首版把索引说明文字里的 `<slug>` 当占位残留，导致 eval-9 两边一起被扣分）。
-（第三方钩子 `.remember/` 污染、隔离会临时改全局状态、模型路由影响可比性）。
+### 🔌 DSH（DeepSeek Harness）适配器：从「静默失效」到真机可用
+
+- 🎯 **找到官方每轮注入机制** = `agent/pre-step` 瀑布钩子（`dsh-agent` 的类型契约；同形先例：`dsh-time-context`、
+  `dsh-agent-instructions`、`dsh-tool-skill`、第三方 `dsh-mnemon`）。原实现探测 `prompt/context.inject()` 的方向是错的。
+- 🧭 **会话目录改为每轮解析**（`ctx.workingDirectory.ensure(agent, signal)`，第一方 `dsh-tool-skill` 同款）——
+  常驻宿主（web profile 由 launchd 托管）cwd 常是 `/`，用进程 cwd 会让插件在**任何项目**里都失效
+  （兜底顺序：显式绝对 root → workingDirectory → `agent.session.meta.cwd` → 进程 cwd）。
+- 🛡️ **兼容性**：改用 `engines.dsh` 一锤定音，删除会被判定为不兼容的 optional peer。
+  真事故：`@deepseek-ai/dsh-llm ^0.1.6-alpha.2` vs 运行时 `0.2.1-rc.2` → **整行插件被禁用且零报错**。
+  回归守卫：`verify.sh` 新增 V6，直接调 DSH 自己的 `evaluatePluginCompatibility`。
+- 📄 **安装模板 `name` 指「入口文件」**（`./bridge/lib/index.js`）：指目录会走 `ERR_UNSUPPORTED_DIR_IMPORT`
+  （真机复现），插件静默加载失败。
+- 🪵 **两处日志各司其职**：加载/卸载写 `~/.dsh/docs-recall.log`（加载那行**不需要调试开关**，每次启动一行）；
+  每轮注入写 `<项目>/.dsh/docs-recall.log`；`log()` 自动 `mkdir -p`，不再静默丢日志。
+- ✅ **真机闭环已验证**：`turn 1 step 1: 注入 338 chars … root=<项目目录>`（2026-10-19，DSH `0.2.1-rc.2` + `web` profile）。
+
+### 🧪 评测方法（iteration-4）：第一次有了可信的对照
+
+- 🧰 夹具**不再预置「已建好的体系」**（iteration-3 出现 0 差异的根因）；只给原始素材。
+- 🔒 基线**机械隔离**：跑基线时临时移开已安装的 skill + `--disable-slash-commands`；移开失败即中止并把证据写进 `run_meta.json`。
+- 📋 新增**人工量表**（D1 日志重点 / D2 知识可复用 / D3 尊重既有约定，各 0–2 分），`grade_v4.py` 自动生成评审骨架。
+- 📈 用例扩到 **6 个**（新增：跨月补写+索引占位、索引漂移修复、单面项目 flat+关键词召回）：
+  **结构断言 55:35（100% vs 63.6%）**、**人工量表 32:36（89% vs 69%）**。
+- 🎯 结论：**增量在「可校验的约束与索引」，不在「帮你写字」**；体系一旦装好（eval-9 / eval-11）两者打平 —— 这是能力边界，不是缺陷。
+- 🐛 工程修复：`setup_iteration4.sh` 幂等（`--force` / `--only <id>`）；召回断言同时接受"任务原话"形式
+  （避免把"自建等价召回"的基线误判为没有召回）。
+
+### 🧹 其它
+
+- 全仓去掉个人绝对路径（本仓自带的 `check-secrets` 扫描器**拦下了作者自己的提交**——它该干的事）。
+- `RELEASE.md`（维护者发版清单）、`evals/README.md`（评测说明书）。
 
 ## 0.3.1 — 2026-10-19
 
