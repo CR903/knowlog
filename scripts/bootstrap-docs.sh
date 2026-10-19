@@ -322,6 +322,7 @@ SCRIPTS = ["bootstrap-docs.sh", "adopt-docs.sh", "new-daily-log.sh", "check-dail
            "index-util.py", "recall-core.py"]
 same_src_dir = srcdir.resolve() == (root / "scripts").resolve()
 force_warned = False
+script_forced = 0
 for s in SCRIPTS:
     src = srcdir / s
     dst = root / "scripts" / s
@@ -351,6 +352,7 @@ for s in SCRIPTS:
                 shutil.copy2(src, dst)
                 os.chmod(dst, dst.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
             created.append(f"scripts/{s}（--force-scripts 覆盖）")
+            script_forced += 1
             continue
         notes.append(f"⚠️ scripts/{s} 已存在且内容不同 → 保留你的版本"
                      f"（升级：从已安装的 skill 跑 bootstrap-docs.sh --force-scripts）"); continue
@@ -359,6 +361,12 @@ for s in SCRIPTS:
         shutil.copy2(src, dst)
         os.chmod(dst, dst.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     created.append(f"scripts/{s}")
+
+if os.environ.get("FORCE_SCRIPTS") == "1" and script_forced == 0 and skipped:
+    notes.append("提示：--force-scripts 这次没有覆盖任何脚本（内容都与来源一致）。"
+                 "若你**期望**有更新 → 很可能是已安装的 skill 副本较旧："
+                 "先 `npx skills update knowlog`（或用 KNOWLOG_HOME=<较新副本> 再跑），再重试本命令。"
+                 "（真机踩过：副本没更新时，升级会静默地「无事发生」，让人误以为 bug。）")
 
 # assets 自包含副本（供复制后的 bootstrap 独立运行）
 asset_dst = root / "scripts" / "assets"
