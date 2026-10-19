@@ -50,6 +50,20 @@ python3 evals/grade_v4.py eval-8 "$D/without_skill" "$D/without_skill/grading.js
 | eval-11 | `v4-drift` | 索引漂移修复（用**项目自带门禁**定位并修好；**自带体系，已备案**，测"修"不测"搭"） |
 | eval-12 | `v4-flat` | 单面项目 flat 布局（不造端层）+ 关键词召回**真能命中** |
 
+## 换模型做对照（结论会对模型敏感）
+
+数字只在**同一模型/同一 harness** 下可比。要换模型对照，**用独立 workspace**（别覆盖已有数字）：
+
+```bash
+# 先看这台机器上路由真正支持哪些模型名（错误信息里会列出可用名）
+claude -p "hi" --model <想试的模型名>
+
+# 用另一个模型重跑全部 6 用例 × 2 配置（串行）
+MODEL=<模型名> bash evals/run_iteration4_pilot.sh "${TMPDIR:-/tmp}/knowlog-iter4-<模型短名>"
+```
+
+跑完把两套表并排写进 `RESULTS.md`（历史模型与结论都留着），并在表头注明机器/harness/日期 —— 否则半年后没人知道那些数字是哪来的。
+
 ## 三条铁律（都是踩出来的）
 
 1. **夹具里不要放"已建好的体系"**。iteration-3 就是这么得到 0 差异的：两边都能照抄现成结构，等于没测。

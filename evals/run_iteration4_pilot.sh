@@ -5,6 +5,8 @@
 #   bash evals/run_iteration4_pilot.sh [workspace_dir]     # 默认 ${TMPDIR}/knowlog-iter4
 #   FORCE_RERUN=1 bash evals/run_iteration4_pilot.sh       # 忽略已有评分，重跑
 #
+# 换模型对照：MODEL=deepseek-v4-pro bash evals/run_iteration4_pilot.sh <另一个 workspace>
+#   （模型不同结论可能不同，所以换模型请用**独立 workspace**，别覆盖已有数字）
 # 为什么串行：基线要把全局 skill 临时改name移开（见 run_case.sh），并行会互相污染。
 # 为什么开头/结尾都要 restore：万一上一次被强杀，可能会留下 .hidden-<pid> 残留。
 set -uo pipefail
@@ -38,7 +40,11 @@ for cs in eval-7-fresh-project-no-docs eval-8-messy-legacy-docs-adopt eval-9-clo
       echo "⏭️  已有评分，跳过 $cs/$cfg"
     else
       echo "════ $cs / $cfg ════"
-      bash "$SKILL_DIR/evals/run_case.sh" "$RUN" "$cfg" 2>&1 | tail -2
+      if [ -n "${MODEL:-}" ]; then
+        bash "$SKILL_DIR/evals/run_case.sh" "$RUN" "$cfg" --model "$MODEL" 2>&1 | tail -2
+      else
+        bash "$SKILL_DIR/evals/run_case.sh" "$RUN" "$cfg" 2>&1 | tail -2
+      fi
       python3 "$SKILL_DIR/evals/grade_v4.py" "$eid" "$RUN" "$RUN/grading.json" 2>&1 | head -1
     fi
     restore_leftovers                          # 每次跑完都确认一次全局状态
