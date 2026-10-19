@@ -32,12 +32,17 @@ git clone https://github.com/CR903/knowlog ~/.local/share/knowlog && bash ~/.loc
 ## 给某个项目落地（三条命令）
 
 ```bash
-npx knowlog init --agent auto     # ① 建结构 + 装脚本 + 写 AGENTS.md 托管块 + 装各 agent 召回 + 自检
-npx knowlog add <slug>            # ② 收尾记一笔（自动落 <月份> 目录 + 在索引里插好行）
-npx knowlog doctor                # ③ 体检：结构规范 + 日志↔索引 + 知识↔索引（--fix-hint 给修复命令）
+K=~/.agents/skills/knowlog        # `skills add` 的落点（也可用你机器上的实际路径）
+node $K/bin/knowlog.mjs init --agent auto   # ① 建结构 + 装脚本 + 写 AGENTS.md 托管块 + 装各 agent 召回 + 自检
+node $K/bin/knowlog.mjs add <slug>          # ② 收尾记一笔（自动落 <月份> 目录 + 在索引里插好行；add 是 log 的别名）
+node $K/bin/knowlog.mjs doctor              # ③ 体检：结构规范 + 日志↔索引 + 知识↔索引（--fix-hint 给修复命令）
 ```
 
-> 不想用 npx 也行：`init` 之后项目里就有全套 `scripts/`，日常直接用项目自己那份（`bash scripts/new-daily-log.sh <slug>`…）。
+> ⚠️ **别用 `npx knowlog`**：本 skill 只走 `skills add` 分发、**尚未发布到 npm**，`npx knowlog` 会 `404`
+> （而且万一 `knowlog` 这个包名被别人抢注，`npx knowlog` 就会执行陌生代码）。想少打字就加个别名：
+> `alias knowlog='node ~/.agents/skills/knowlog/bin/knowlog.mjs'`。
+
+> 更省事的日常姿势：`init` 之后项目里就有全套 `scripts/`，直接用它 —— `bash scripts/new-daily-log.sh <slug>`、`bash scripts/docs-doctor.sh`。
 
 **不指定 `--agent` 时不会碰你的 agent 配置**（`.claude/settings.json`、`opencode.json`…）；要装召回再说一句。
 
@@ -65,7 +70,7 @@ npx knowlog doctor                # ③ 体检：结构规范 + 日志↔索引 
 knowlog/
 ├── SKILL.md              # 给 agent 的三条工作流（搭建 / 收尾记日志 / 体检修复）
 ├── VERSION
-├── bin/knowlog.mjs       # 零依赖 CLI（npx knowlog …），只是转发下面的脚本
+├── bin/knowlog.mjs       # 零依赖 CLI（node bin/knowlog.mjs …；未发布 npm），只是转发下面的脚本
 ├── scripts/              # 真正干活的全套脚本（bash + python3，项目里也会各存一份）
 │   ├── bootstrap-docs.sh       # 搭/补建体系（幂等；flat/by-end 自适应；自包含 assets）
 │   ├── new-daily-log.sh        # 记日志（落月份目录 + 插索引行）
@@ -83,7 +88,7 @@ knowlog/
 ├── adapters/             # 各 agent 的薄适配器 + 为什么有的只能静态注入
 ├── assets/               # 模板（索引/README/日志/知识/领域/AGENTS 托管块）
 ├── references/           # structure / memory-and-constraints / maintenance / installation
-└── evals/                # 自带测试：84 项确定性自测 + 三轮真实评测的夹具与评分器
+└── evals/                # 自带测试：93 项确定性自测 + 三轮真实评测的夹具与评分器（结论见 evals/RESULTS.md）
 ```
 
 ## 支持的 agent
@@ -108,15 +113,17 @@ npx skills remove knowlog        # 卸载
 ```
 
 项目里的 `docs/` 与 `scripts/` 是**你的资产**，不随 skill 卸载而消失（这是刻意的：skill 是工具，文档体系是项目的一部分）。
-重新升级项目内那套：`bash scripts/bootstrap-docs.sh`（幂等，只刷新脚本/资产/托管块，不覆盖你手改的内容）。
+重新升级项目内那套：`bash scripts/bootstrap-docs.sh`（幂等，只刷新脚本/资产/托管块，不覆盖你手改的内容）；
+要**整体升到上游脚本版本**：`bash ~/.agents/skills/knowlog/scripts/bootstrap-docs.sh --root . --force-scripts`（必须从已安装的 skill 跑）。
 
 ## 安全 / 防泄露
 
-本仓库自带两道防线（`.githooks/pre-commit`，已 `git config core.hooksPath .githooks`）：
+本仓库自带两道防线（`.githooks/pre-commit`）。**clone 之后跑一次把它启用**（git 不会随仓库携带 hook 配置）：
 
 ```bash
-bash scripts/check-secrets.sh            # 扫全仓：密钥/令牌/私钥 + 个人绝对路径 / 内网地址
-bash scripts/check-secrets.sh --staged   # 只扫暂存区（pre-commit 用）
+git config core.hooksPath .githooks       # 每个人 clone 后各跑一次
+bash scripts/check-secrets.sh             # 扫全仓：密钥/令牌/私钥 + 个人绝对路径 / 内网地址
+bash scripts/check-secrets.sh --staged    # 只扫暂存区（pre-commit 用）
 ```
 
 命中即非零退出；误报可 `SKIP_SECRET_SCAN=1 git commit …` 临时跳过。
@@ -125,7 +132,8 @@ bash scripts/check-secrets.sh --staged   # 只扫暂存区（pre-commit 用）
 ## 开发
 
 ```bash
-bash evals/test_scripts.sh       # 84 项确定性自测（布局/幂等/adopt/召回/体检/安装/打包/边界）
+bash evals/test_scripts.sh       # 93 项确定性自测（布局/幂等/adopt/召回/体检/安装/打包/边界/防泄露）
+# 推送到 GitHub 后，.github/workflows/ci.yml 会自动跑同一套自测 + 密钥扫描
 bash scripts/package-skill.sh    # 打包 .skill
 ```
 

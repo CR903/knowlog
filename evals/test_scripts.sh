@@ -60,9 +60,10 @@ chk "新知识已登记进分端索引" 'grep -q "stale-x.md" docs/knowledge/bac
 chk "新知识已登记进根索引" 'grep -q "stale-x.md" docs/knowledge/index.md'
 chk "知识门禁绿" 'bash scripts/check-knowledge-index.sh --strict >/dev/null'
 # 幂等：全树 shasum 对拍
-B=$(find . -path ./.git -prune -o -type f -print | sort | xargs shasum | shasum)
+HASHBIN="$(command -v shasum || command -v sha1sum)"   # macOS=shasum / Linux=sha1sum（CI 用）
+B=$(find . -path ./.git -prune -o -type f -print | sort | xargs "$HASHBIN" | "$HASHBIN")
 bash scripts/bootstrap-docs.sh --project-name "多端项目" >/dev/null 2>&1
-A=$(find . -path ./.git -prune -o -type f -print | sort | xargs shasum | shasum)
+A=$(find . -path ./.git -prune -o -type f -print | sort | xargs "$HASHBIN" | "$HASHBIN")
 [ "$A" = "$B" ] && ok "二次 bootstrap 逐字节相同（真幂等，修复#4）" || bad "二次 bootstrap 改动了文件（不幂等）"
 # 用户手工编辑托管块外的手工区 → 重跑不许被吃掉
 python3 - <<'PY'

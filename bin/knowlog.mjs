@@ -5,17 +5,25 @@
  * 设计取舍（为什么是"薄壳"而不是把逻辑搬到 JS）：
  *   真正的逻辑（建结构/体检/采纳/召回/索引写入）都在 bash+python 脚本里，那些脚本**项目自己也要用**
  *   （收尾记日志、CI 门禁）。CLI 只做"发现 payload + 转发命令 + 打印下一步"，避免同一逻辑两份实现。
- *   → 也正因为这样，这个包**零依赖**：任何机器 `npx knowlog …` 即可，不需要装 bash 之外的运行时。
+ *   → 也正因为这样，本 CLI **零依赖**：node 直接跑 `bin/knowlog.mjs` 即可（只需要 bash + node）。
+ *
+ * ⚠️ 本包**未发布到 npm**，所以 `npx knowlog …` 不成立（npm 上还没有这个包名；
+ *    也请勿依赖它 —— 万一包名被别人抢注，`npx knowlog` 会执行陌生代码）。
+ *
+ * 调用方式（用已安装路径）：
+ *   K=~/.agents/skills/knowlog            # `npx skills add CR903/knowlog` 的落点
+ *   node $K/bin/knowlog.mjs init --agent auto
+ *   # 想少打字：alias knowlog='node ~/.agents/skills/knowlog/bin/knowlog.mjs'
  *
  * 用法：
- *   npx knowlog init [--agent auto|claude,opencode] [--root DIR] [--dry-run]
- *   npx knowlog doctor [--root DIR] [--strict]
- *   npx knowlog adopt [--apply]
- *   npx knowlog log <slug> [YYYY-MM-DD]
- *   npx knowlog knowledge <端|--flat> <分类> <name> "<说明>"
- *   npx knowlog install-skill [--agent auto] [--scope user|project] [--mode auto|link|copy]
- *   npx knowlog package [--out DIR]
- *   npx knowlog version
+ *   knowlog init [--agent auto|claude,opencode] [--root DIR] [--dry-run]
+ *   knowlog doctor [--root DIR] [--strict]
+ *   knowlog adopt [--apply]
+ *   knowlog log|add <slug> [YYYY-MM-DD]        # add 是 log 的别名
+ *   knowlog knowledge <端|--flat> <分类> <name> "<说明>"
+ *   knowlog install-skill [--agent auto] [--scope user|project] [--mode auto|link|copy]
+ *   knowlog package [--out DIR]
+ *   knowlog version | help
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
@@ -65,10 +73,12 @@ function parseFlags(argv) {
 const HELP = `
 ${C.b}knowlog${C.x} v${version()} — 项目文档体系（日志 / 知识库 / 领域上下文 / 索引 / 召回）
 
+${C.dim}调用（本包未发布 npm，用已安装路径）：K=~/.agents/skills/knowlog && node $K/bin/knowlog.mjs <命令>${C.x}
+
 ${C.b}最常用${C.x}
   knowlog init [--agent auto] [--root DIR] [--dry-run]    给当前项目建/补齐文档体系（含收尾门禁）
   knowlog doctor [--strict] [--fix-hint]                  体检：结构规范 + 日志↔索引 + 知识↔索引
-  knowlog log <slug> [YYYY-MM-DD]                         收尾记一笔（自动落月份目录 + 插索引行）
+  knowlog log|add <slug> [YYYY-MM-DD]                     收尾记一笔（自动落月份目录 + 插索引行；add 是别名）
   knowlog knowledge <端|--flat> <分类> <name> "<说明>"    沉淀一条可复用结论（自动更新索引）
 
 ${C.b}其它${C.x}
@@ -79,12 +89,17 @@ ${C.b}其它${C.x}
   knowlog package [--out DIR]                             打包 .skill（离线分发用）
   knowlog version | help
 
-${C.dim}提示：init 之后，项目内就有全套脚本（scripts/），日常用项目自己的那份即可，不必每次走 npx。${C.x}
+${C.dim}提示：init 之后，项目内就有全套脚本（scripts/），日常用项目自己的那份即可（bash scripts/new-daily-log.sh <slug>），不必每次走 CLI。${C.x}
 `;
 
 function main() {
   const [cmd = "help", ...argv] = process.argv.slice(2);
   const { flags, rest } = parseFlags(argv);
+  // 子命令的 -h/--help 也要给帮助，不要把 --help 透传给下面的脚本（脚本会当成非法参数报用法错）
+  if (!["help", "--help", "-h"].includes(cmd) && (flags.help !== undefined || rest.includes("-h"))) {
+    console.log(HELP);
+    return 0;
+  }
   const root = flags.root ? ["--root", flags.root] : [];
   const dry = flags["dry-run"] === "true";
   const pass = (...k) => k.filter((x) => flags[x] !== undefined).map((x) => `--${x}`);
@@ -113,7 +128,7 @@ function main() {
     case "adopt": return run("adopt-docs.sh", [...root, ...(flags.apply === "true" ? ["--apply"] : [])]);
     case "reindex": return run("reindex-knowledge.sh", [...root, ...(flags.apply === "true" ? ["--apply"] : [])]);
     case "recall": case "retrieve": return run("knowledge-retrieve.sh", [...root, ...rest]);
-    case "log": case "new-log": return run("new-daily-log.sh", [rest[0], rest[1], ...root].filter(Boolean));
+    case "log": case "add": case "new-log": return run("new-daily-log.sh", [rest[0], rest[1], ...root].filter(Boolean));
     case "knowledge": case "new-knowledge": return run("new-knowledge.sh", [...rest, ...root]);
     case "keyword": case "new-keyword": return run("new-keyword.sh", [...rest, ...root]);
     case "package": return run("package-skill.sh", [...pass("out")]);

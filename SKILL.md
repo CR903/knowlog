@@ -46,7 +46,8 @@ agent 的上下文会被压缩、会丢；**文件不会**。所以约定：凡�
 
 **A. 给新项目搭建**（用户说"建文档体系""搭 docs""规范日志"）：
 
-> 装了 CLI 的话，最省事的是 `npx knowlog init --agent auto`（= 建结构 + 装脚本 + 写托管块 + 装召回 + 自检）；
+> 装了 CLI 的话，最省事的是 `node ~/.agents/skills/knowlog/bin/knowlog.mjs init --agent auto`
+> （= 建结构 + 装脚本 + 写托管块 + 装召回 + 自检；**本包未发布 npm，别用 `npx knowlog`**）；
 > 没装 CLI 就直接调脚本（下同）。
 
 
@@ -160,7 +161,7 @@ bash scripts/install-recall.sh --agent auto    # 确认后再装（幂等）
 | `docs-doctor.sh [--strict] [--quiet]` | **体检总入口**（推荐） | 串起上面三个 checker + 汇总；失败时给"常见修法速查"；`--quiet` 适合 pre-commit |
 | `install-skill.sh --agent auto` | 把 skill **本体**装到各 agent | `--mode auto|link|copy`（auto：有 `~/.agents/skills` 就"权威副本+软链"）；`--check` 对比版本 |
 | `package-skill.sh [--out DIR]` | 打包分发单元 .skill | 纯 zip，不依赖任何第三方打包工具；默认 `~/.agents/skills/.packages/` |
-| `bin/knowlog.mjs`（npm CLI） | 给人用的统一入口 | `npx knowlog init\|doctor\|log\|knowledge\|adopt\|reindex\|install-skill\|package`；零依赖，内部转发同一批脚本 |
+| `bin/knowlog.mjs`（零依赖 CLI） | 给人用的统一入口 | `node <已安装 skill>/bin/knowlog.mjs init\|log(add)\|doctor\|knowledge\|adopt\|reindex\|install-skill\|package`；内部转发同一批脚本 |
 | `new-daily-log.sh <slug> [日期]` | 每次任务收尾 | 自动算月份目录、复制模板、**在 index.md 插入索引行骨架** |
 | `new-knowledge.sh <端> <分类> <name> "<说明>" --source <日志>` | 有可复用结论时 | 复制知识模板 + **同时更新分端与根索引** |
 | `new-keyword.sh "<正则>" "<提示>" "<文档>"` | 某坑第二次踩 / 会被反复问 | 往 `.keyword-map.json` 追加召回规则（正则要命中标识符，不是自然语言标题） |
@@ -220,7 +221,7 @@ bash scripts/docs-doctor.sh --fix-hint            # ③ 体检
   升级就是重跑 `bootstrap-docs.sh`（幂等 + 托管块，不会覆盖你手改的内容）。
 - **分发**（给别的人/别的机器）：首选**一个 git 仓库 + 一行 `npx skills add https://github.com/CR903/knowlog`**
   （复用本机已有的 `skills` 管理器：自动装到 40+ agent + 软链 + `skills update` 可升级）；
-  离线场景给 `.skill` 包 + `install-skill.sh`；npm 只作为 CLI 的分发方式（`npx knowlog`），不是 skill 本体的分发方式。
+  离线场景给 `.skill` 包 + `install-skill.sh`。**CLI 暂不发布 npm**（所以没有 `npx knowlog`）—— 用已安装路径调用：`node ~/.agents/skills/knowlog/bin/knowlog.mjs …`。
   详见 `references/installation.md`。
 
 ## 参考文件

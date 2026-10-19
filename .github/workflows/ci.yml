@@ -1,0 +1,33 @@
+name: CI
+
+# 门槛很低但够用：每次 push / PR 都跑「防泄露扫描 + 脚本语法 + 93 项确定性自测」。
+# 为什么值得有：这套 skill 的价值全在"门禁真的会拦"，而自测只在本机跑过；
+# 一旦远端没人守，回归就会悄悄进来。
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 环境信息
+        run: |
+          bash --version | head -1
+          node --version
+          python3 --version
+
+      - name: 防泄露扫描（密钥 / 个人路径 / 内网地址）
+        run: bash scripts/check-secrets.sh
+
+      - name: 脚本语法
+        run: |
+          for f in scripts/*.sh .githooks/* evals/*.sh; do bash -n "$f" || exit 1; done
+          for f in bin/*.mjs; do node --check "$f" || exit 1; done
+          echo "语法 OK"
+
+      - name: 确定性自测
+        run: bash evals/test_scripts.sh
