@@ -1,5 +1,5 @@
 #!/bin/bash
-# run_iteration4_pilot.sh — 把 iteration-4 的三个用例（带/不带 skill）跑完并出对照表
+# run_iteration4_pilot.sh — 把 iteration-4 的六个用例（带/不带 skill）跑完并出对照表
 #
 # 用法:
 #   bash evals/run_iteration4_pilot.sh [workspace_dir]     # 默认 ${TMPDIR}/knowlog-iter4
@@ -28,7 +28,8 @@ restore_leftovers
 echo "▶ 造/校验运行目录…"
 bash "$SKILL_DIR/evals/setup_iteration4.sh" "$WS" > /dev/null || exit 1
 
-for cs in eval-7-fresh-project-no-docs eval-8-messy-legacy-docs-adopt eval-9-closeout-after-real-task; do
+for cs in eval-7-fresh-project-no-docs eval-8-messy-legacy-docs-adopt eval-9-closeout-after-real-task \
+          eval-10-cross-month-backfill eval-11-index-drift-repair eval-12-single-end-flat-recall; do
   eid="$(printf %s "$cs" | cut -d- -f1-2)"   # eval-7 / eval-8 / eval-9（别用 ${cs%%-*}：会截成 eval）
   for cfg in with_skill without_skill; do
     RUN="$IT/$cs/$cfg"
@@ -79,5 +80,5 @@ print(hdr); print("-" * len(hdr))
 for r in rows:
     print(f'{r["case"]:<38} {r.get("with_skill","—"):<12} {r.get("with_skill_rubric","—"):<8} '
           f'{r.get("without_skill","—"):<14} {r.get("without_skill_rubric","—"):<8}')
-print("\n注：结构断言 = knowlog 形状的 9/9/7 条客观判据；人工 = evals/review-rubric.md 的 D1+D2+D3（各 2 分）。")
+print("\n注：结构断言 = knowlog 形状的 9/9/7/10/9/11 条客观判据；人工 = evals/review-rubric.md 的 D1+D2+D3（各 2 分）。")
 PY

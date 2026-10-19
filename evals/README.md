@@ -13,15 +13,18 @@
 |---|---|---|
 | `test_scripts.sh` | 通用 | 93 项确定性自测（最快的门禁） |
 | `build_fixtures.sh` · `setup_runs.sh` · `setup_iteration2.sh` · `setup_iteration3.sh` · `grade.py` · `run_grading.sh` | **iteration-1..3（历史）** | 保留以便追溯老结论；**数字不可与新一套混用**（夹具设计与隔离机制都不同） |
-| `build_fixtures_v4.sh` · `evals-v4.json` | **iteration-4（新）** | 夹具与用例定义；夹具只给原始素材，**不预置已建好的体系** |
+| `build_fixtures_v4.sh` · `evals-v4.json` | **iteration-4（新）** | 夹具与用例定义（6 个用例：eval-7..12）；夹具只给原始素材，**不预置已建好的体系**（唯一例外 eval-9、eval-11，原因见 `evals-v4.json` 的 `design_notes`） |
 | `setup_iteration4.sh` | 新 | 批量造运行目录（含 `PROMPT.md`、基线快照、元数据） |
 | `run_case.sh` | 新 | 跑一次（含**机械隔离**：基线时把全局 skill 临时移开） |
 | `grade_v4.py` | 新 | 客观断言 + 排除第三方钩子产物 + 生成人工评审骨架 |
 | `review-rubric.md` | 新 | 人工量表（D1 日志重点 / D2 知识可复用 / D3 尊重既有约定） |
-| `run_iteration4_pilot.sh` | 新 | 一把梭：三个用例全跑 + 出对照表（串行，自带残留修复） |
+| `run_iteration4_pilot.sh` | 新 | 一把梭：六个用例全跑 + 出对照表（串行，自带残留修复） |
 | `RESULTS.md` | — | **结论与已知干扰**（先读它） |
 
 ## 怎么跑（iteration-4）
+
+> ✅ `setup_iteration4.sh` 默认**幂等**：已存在的用例目录保留不动（要重建加 `--force`，或 `--only eval-10` 只重建一个）。
+> 只想补跑新用例时：先备份 `<WS>/iteration-4/<用例>`，跑完 setup 再还原，或只对目标用例跑下面三步。
 
 ```bash
 WS="${TMPDIR:-/tmp}/knowlog-iter4"
@@ -35,6 +38,17 @@ python3 evals/grade_v4.py eval-8 "$D/with_skill"    "$D/with_skill/grading.json"
 python3 evals/grade_v4.py eval-8 "$D/without_skill" "$D/without_skill/grading.json"
 # 然后按 review-rubric.md 填 ./manual_review.md
 ```
+
+六个用例（用例定义与"它到底测什么"见 `evals-v4.json` 的 `measures`）：
+
+| id | 夹具 | 测什么 |
+|---|---|---|
+| eval-7 | `v4-fresh` | 全新项目从零搭结构 |
+| eval-8 | `v4-messy` | 一团乱的历史文档：归位/合并 + 补索引 + 识别死链 |
+| eval-9 | `v4-closeout` | 体系已就位时的收尾质量（**自带体系，已备案**） |
+| eval-10 | `v4-backfill` | 跨月补写：按**任务日期**（而非今天）归月 + 索引行占位填实 |
+| eval-11 | `v4-drift` | 索引漂移修复（用**项目自带门禁**定位并修好；**自带体系，已备案**，测"修"不测"搭"） |
+| eval-12 | `v4-flat` | 单面项目 flat 布局（不造端层）+ 关键词召回**真能命中** |
 
 ## 三条铁律（都是踩出来的）
 
@@ -55,6 +69,11 @@ python3 evals/grade_v4.py eval-8 "$D/without_skill" "$D/without_skill/grading.js
   脚本用 `trap` 自动还原；**若被强杀**，手工修：`bash evals/run_iteration4_pilot.sh` 开头的 `restore_leftovers` 逻辑，
   或直接 `ls -d ~/.claude/skills/*.hidden-*` 看有没有残留。
 - **串行跑**：基线要动全局 skill，所以 with/without 不能并行。
+- **`setup_iteration4.sh` 默认幂等**（保留已有结果）；补跑新用例直接跑 pilot 即可，不会清掉旧评分。需要重建时用 `--force` / `--only <id>`。
+- **断言只盯"能力有没有"，别盯"用了哪套 CLI 契约"**（扩评踩到）：eval-12 的基线自建了等价的 `scripts/knowledge-retrieve.sh`（实测能命中），
+  若断言只认本 skill 的 `--root` 调用形式就会把它误判成"没有召回"。召回的判据同时接受任务里给用户的原话形式（在项目目录里跑 `bash scripts/knowledge-retrieve.sh "<probe>"`）。
+- **夹具自带体系 = 基线也会用**（eval-9 / eval-11）：这类用例必然打平或接近打平，属**能力边界**而非缺陷；
+  写这种用例要在 `evals-v4.json` 的 `design_notes` 备案，并在 `measures` 里写明"测的是修复/收尾能力，不是搭建能力"。
 - **模型会变**：换模型（或换了 agent harness）必须重跑，数字只在同一配置下可比。
 
 ## 判定口径

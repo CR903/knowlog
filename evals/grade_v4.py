@@ -130,6 +130,98 @@ def knowledge_index_mentions(needle: str) -> bool:
     return False
 
 
+# ---- 扩评（eval-10..12）用到的通用工具 ----
+CATS = ["architecture", "guides", "troubleshooting", "best-practices"]
+
+
+def index_table_rows() -> list[str]:
+    """只取表格行（以 | 开头）—— 判占位残留只能看这里，说明文字里本就会出现 <slug> 等写法。"""
+    return [ln for ln in idx_text().splitlines() if ln.strip().startswith("|")]
+
+
+def residue_rows() -> list[str]:
+    return [ln for ln in index_table_rows()
+            if re.search(r"(待填|待回填|待提交|<TODO>|<slug>|TODO)", ln)]
+
+
+def log_rels() -> set[str]:
+    """磁盘上的日志，转成与索引链接同形的相对路径（daily/<月>/<文件>）。"""
+    return {str(p.relative_to(PROJ / "docs")) for p in daily()}
+
+
+def month_mismatches() -> list[str]:
+    out = []
+    for p in daily():
+        if not re.fullmatch(r"\d{4}-\d{2}", p.parent.name):
+            out.append(f"{p.relative_to(PROJ)}（父目录 {p.parent.name} 不是月份目录）")
+            continue
+        m = re.match(r"(\d{4}-\d{2})-\d{2}_.+\.md$", p.name)
+        if not m or p.parent.name != m.group(1):
+            out.append(f"{p.relative_to(PROJ)}（目录月 {p.parent.name}）")
+    return out
+
+
+def recall_check(probes: list[str]) -> tuple[bool, bool, str]:
+    """跑项目里的 knowledge-retrieve.sh：命中吗？命中的文档真实存在吗？
+
+    故意同时试两种调用形式：`bash scripts/knowledge-retrieve.sh "<probe>"`（任务里给用户的原话）
+    与加 `--root` 的形式 —— 免得把"自建了等价召回、但 CLI 契约不同"的基线误判为"没有召回"。
+    """
+    sh = PROJ / "scripts" / "knowledge-retrieve.sh"
+    if not sh.exists():
+        return False, False, "scripts/knowledge-retrieve.sh 不存在（召回入口缺失）"
+    attempts = []
+    for probe in probes:
+        attempts.append(([str(sh), probe], f"probe={probe!r}（cwd 形式）"))
+        attempts.append(([str(sh), "--root", str(PROJ), probe], f"probe={probe!r}（--root 形式）"))
+    for args, label in attempts:
+        try:
+            p = subprocess.run(["bash", *args], cwd=str(PROJ),
+                               capture_output=True, text=True, timeout=60)
+        except Exception as e:
+            return False, False, f"调用失败：{e}"
+        out = (p.stdout + p.stderr).strip()
+        if p.returncode == 0 and "命中" in out:
+            docs = [d.rstrip(")）.,。、") for d in re.findall(r"(docs/knowledge/\S+\.md)", out)]
+            if docs:
+                ok = all((PROJ / d.split("#")[0]).exists() for d in docs)
+                return True, ok, f"{label} docs={docs[:2]}"
+    return False, False, f"探针均未命中：{probes}"
+
+
+def knowledge_docs() -> list[pathlib.Path]:
+    know = PROJ / "docs" / "knowledge"
+    if not know.is_dir():
+        return []
+    return [p for p in know.rglob("*.md")
+            if counted(p) and p.name not in {"README.md", "index.md"}]
+
+
+def end_layer_dirs() -> list[str]:
+    """知识库里的「端层」目录：非四分类，且含 index.md 或含分类子目录。"""
+    know = PROJ / "docs" / "knowledge"
+    if not know.is_dir():
+        return []
+    out = []
+    for d in sorted(know.iterdir()):
+        if not d.is_dir() or d.name in CATS:
+            continue
+        if (d / "index.md").exists() or any((d / c).is_dir() for c in CATS):
+            out.append(d.name)
+    return out
+
+
+def keyword_rules() -> dict:
+    kmap = PROJ / "docs" / "knowledge" / ".keyword-map.json"
+    if not kmap.exists():
+        return {}
+    try:
+        d = json.loads(kmap.read_text(encoding="utf-8") or "{}")
+    except Exception:
+        return {}
+    return {k: v for k, v in d.items() if isinstance(v, dict) and not k.startswith("_")}
+
+
 # ---------------- 用例 ----------------
 if EVAL == "eval-7":
     # 全新项目：从零搭结构（夹具里什么都没有）
@@ -196,6 +288,94 @@ elif EVAL == "eval-9":
     check("把可复用结论沉淀成知识并登记进索引",
           bool(new_knowledge) and any(knowledge_index_mentions(pathlib.Path(f).stem) for f in new_knowledge),
           f"新增知识: {new_knowledge}")
+
+elif EVAL == "eval-10":
+    # 跨月补写：任务日期早于当前月 → 按任务日期归月 + 索引行落对表格 + 占位填实
+    logs = daily()
+    check("建立了月份目录，日志未散落在 daily 根", bool(logs) and not loose(),
+          f"日志 {len(logs)} 篇；散落 {[str(p.relative_to(PROJ)) for p in loose()]}")
+    sep = [p for p in monthly() if re.match(r"2026-09-12_", p.name)]
+    check("9 月任务按「任务日期」归入 daily/2026-09/（不是塞进 10 月）", bool(sep),
+          f"月份目录日志: {[str(p.relative_to(PROJ)) for p in monthly()]}")
+    octp = [p for p in monthly() if re.match(r"2026-10-15_", p.name)]
+    check("10 月任务按「任务日期」归入 daily/2026-10/", bool(octp),
+          f"2026-10 下: {[p.name for p in (PROJ / 'docs' / 'daily' / '2026-10').glob('*.md')] if (PROJ / 'docs' / 'daily' / '2026-10').is_dir() else []}")
+    sepbody = "\n".join(p.read_text(encoding="utf-8", errors="ignore") for p in sep)
+    octbody = "\n".join(p.read_text(encoding="utf-8", errors="ignore") for p in octp)
+    check("两篇日志都写实（9 月提到 packaging/CalcConsume；10 月提到 toFixed/精度/负零）",
+          ("packaging" in sepbody or "CalcConsume" in sepbody)
+          and any(k in octbody for k in ("toFixed", "精度", "负零", "money")),
+          f"9月正文={len(sepbody)} 10月正文={len(octbody)}")
+    idx = idx_text()
+    check("索引同时登记了 9 月与 10 月两笔（都按任务日期）",
+          ("2026-09-12" in idx) and ("2026-10-15" in idx),
+          f"9月={'2026-09-12' in idx} 10月={'2026-10-15' in idx}")
+    check("索引里新起了 2026-09 月份表格（跨月落对表）", "2026-09" in idx, "")
+    check("索引表格行无占位残留（只查表格行）", not residue_rows(), f"残留行={residue_rows()[:2]}")
+    check("索引链接全部可达（无死链）",
+          bool(daily_links()) and not dead_links(), f"链接={len(daily_links())} 死链={dead_links()}")
+    rc, out = gate("check-daily-index.sh")
+    check("门禁 check-daily-index.sh --strict 通过（含三处月份一致）", rc == 0, f"rc={rc} {out}")
+    check("AGENTS.md 写入托管块且门禁脚本就位",
+          has_block() and not scripts_missing(["check-daily-index.sh"]), "")
+
+elif EVAL == "eval-11":
+    # 索引漂移修复（测「修」不测「搭」）：夹具自带体系 + 人为注入四类漂移
+    rc, out = gate("check-daily-index.sh")
+    check("最终 日志↔索引 门禁 --strict 通过", rc == 0, f"rc={rc} {out}")
+    check("索引无死链", not dead_links(), f"死链={dead_links()}")
+    mism = month_mismatches()
+    check("所有日志 目录月 == 文件名月", not mism, f"不符: {mism}")
+    files, links = log_rels(), set(daily_links())
+    check("每篇日志都有索引行（且索引无多余链接）",
+          bool(files) and not (files - links) and not (links - files),
+          f"缺行={sorted(files - links)} 多余={sorted(links - files)}")
+    t = text_all()
+    check("三篇历史日志内容均未丢失（游标/OFFSET、幂等键、审计）",
+          all(k in t for k in ("OFFSET", "幂等", "审计")), "原 8/9/10 月日志的独特片段")
+    check("孤儿知识文档已登记进知识索引", knowledge_index_mentions("redis-timeout"),
+          "docs/knowledge/troubleshooting/redis-timeout.md")
+    doc = PROJ / "scripts" / "docs-doctor.sh"
+    if doc.exists():
+        p = subprocess.run(["bash", str(doc), "--strict", "--root", str(PROJ)],
+                           capture_output=True, text=True, timeout=240)
+        check("体检总入口 docs-doctor.sh --strict 三项全绿", p.returncode == 0,
+              f"rc={p.returncode} {(p.stdout + p.stderr).strip()[-300:]}")
+    else:
+        check("体检总入口 docs-doctor.sh --strict 三项全绿", False, "scripts/docs-doctor.sh 不存在")
+    check("AGENTS.md 托管块未被破坏", has_block(), "")
+    check("索引里用户手写的「团队约定」段落未被删", "团队约定" in idx_text(), "")
+
+elif EVAL == "eval-12":
+    # 单面项目：知识库应落 flat（不造端层）+ 关键词召回真能用
+    know = PROJ / "docs" / "knowledge"
+    endd = end_layer_dirs()
+    check("知识库未造端层（单面项目不建 <端>/<分类>/ 结构）",
+          know.is_dir() and not endd, f"端层目录: {endd}")
+    kdocs = knowledge_docs()
+    flat_ok = bool(kdocs) and all(len(p.relative_to(know).parts) <= 2 for p in kdocs)
+    check("知识库为 flat（知识文档直接挂在 docs/knowledge/ 或其分类下，不另起端层）",
+          flat_ok, f"知识文档: {[str(p.relative_to(know)) for p in kdocs]}")
+    check("知识根索引 docs/knowledge/index.md 就位", (know / "index.md").exists(), "")
+    topic = [p for p in kdocs
+             if re.search(r"csvColumns|列顺序|列序|column", p.read_text(encoding="utf-8", errors="ignore"), re.I)]
+    check("沉淀了「CSV 列顺序」可复用知识文档", bool(topic),
+          f"知识文档: {[str(p.relative_to(PROJ)) for p in kdocs]}")
+    check("该知识文档已登记进知识索引",
+          bool(topic) and any(knowledge_index_mentions(p.stem) for p in topic),
+          f"登记={[p.stem for p in topic]}")
+    rules = keyword_rules()
+    check("加了真实召回规则（docs/knowledge/.keyword-map.json）", bool(rules),
+          f"规则 {len(rules)} 条: {list(rules)[:3]}")
+    hit, docs_ok, ev = recall_check(["csvColumns", "导出 CSV 的 csvColumns 列顺序", "列顺序 导出"])
+    check("关键词召回可被命令行命中（用标识符 probe）", hit, ev)
+    check("召回指向的文档真实可达", hit and docs_ok, ev)
+    rc, out = gate("check-knowledge-index.sh")
+    check("知识门禁 check-knowledge-index.sh --strict 通过", rc == 0, f"rc={rc} {out}")
+    rc2, out2 = gate("check-docs-structure.sh")
+    check("结构门禁 check-docs-structure.sh --strict 通过（flat 布局不混端层）", rc2 == 0,
+          f"rc={rc2} {out2}")
+    check("AGENTS.md 写入托管块", has_block(), "")
 
 else:
     print(f"未知 eval_id: {EVAL}", file=sys.stderr)
