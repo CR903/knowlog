@@ -1,7 +1,7 @@
 {
   "name": "knowlog",
   "displayName": "知录",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "给任何项目建立并维护一套会自我校验的文档体系：任务日志 + 结构化知识库 + 领域上下文 + 索引 + 门禁 + 关键词召回（跨 Claude Code / Codex / OpenCode / Cursor / Gemini / Copilot / DSH）",
   "license": "MIT",
   "type": "skill",

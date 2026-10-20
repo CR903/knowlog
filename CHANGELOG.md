@@ -2,6 +2,12 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## 0.4.3 — 2026-10-20
+
+- 🧹 **包卫生**：0.4.2 的 npm 包里混进了本机字节码（`adapters/__pycache__/*.pyc`）。
+  现在：复制适配器时跳过 `__pycache__`/`*.pyc`；新增 `.npmignore`（`__pycache__/`、`*.pyc`、
+  `.DS_Store`、`._*`、评测产物）→ 包内 58 项、零字节码。
+
 ## 0.4.2 — 2026-10-20
 
 **改名后的「引用与提示词」全量审计修复**（用户指出的：提示词/引用里不能还留着 scripts/）
