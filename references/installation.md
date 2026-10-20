@@ -7,9 +7,9 @@
 | 层 | 装什么 | 谁来做 | 范围 |
 |----|--------|--------|------|
 | ① **本体安装** | 让 agent *知道有这个 skill*（SKILL.md 能被发现） | `scripts/install-skill.sh` | 机器级 / 仓库级 |
-| ② **项目内适配** | 让**某个具体项目**的召回与约束落到 agent 的钩子/插件/规则文件 | `scripts/install-recall.sh` + `bootstrap-docs.sh` | 项目级 |
+| ② **项目内适配** | 让**某个具体项目**的召回与约束落到 agent 的钩子/插件/规则文件 | `.knowlog/install-recall.sh` + `bootstrap-docs.sh` | 项目级 |
 
-只做①：agent 知道有这个 skill，但项目里没有 `scripts/`、没有 `AGENTS.md` 托管块 → 触发后它得从零搭（也能干，只是每次都要重新决定结构）。
+只做①：agent 知道有这个 skill，但项目里没有 `.knowlog/`、没有 `AGENTS.md` 托管块 → 触发后它得从零搭（也能干，只是每次都要重新决定结构）。
 只做②：项目结构齐全，但别的 agent/别的机器上的 agent 不知道有这套 skill 的来源与用法（不过 `AGENTS.md` 托管块本身已经把规则写进了项目，这层其实相当抗丢）。
 **推荐**：① 装一次（每台机器），② 每个项目跑一次。
 
@@ -129,7 +129,7 @@ bash scripts/package-skill.sh --out ./dist    # 自定义输出目录
 - 本机实测：`npx -y skills@latest add <本 skill 路径> -g -y` → `✓ knowlog (copied)`，写入 lock，`skills list` 可见
 
 所以正确姿态是**接入它**（`--mode link`；或干脆让用户用 `skills add` 装），而不是自造第二套。
-我们唯一补充的是**项目级**那层（`.claude/hooks`、`opencode.json`、`.cursor/rules`… 与项目内 `scripts/`），
+我们唯一补充的是**项目级**那层（`.claude/hooks`、`opencode.json`、`.cursor/rules`… 与项目内 `.knowlog/`），
 那是 `skills` CLI 不负责的部分。
 
 同时补上两个"管理器该有"的东西 —— 都在脚本里：
@@ -149,7 +149,7 @@ bash scripts/package-skill.sh --out ./dist    # 自定义输出目录
 | 分发 | CLI（`trellis init` / `trellis update`）+ 模板渲染 | 一个 `.skill` 包 + 目录复制（`install-skill.sh`） |
 | 平台矩阵 | 为每个平台生成原生文件（`.claude/`、`.codex/`、`.opencode/`、`.cursor/`…） | 同样按 agent 生成原生文件（`install-skill.sh` 表格 + `install-recall.sh` 的适配器） |
 | 升级方式 | `trellis update` 做**块级托管替换** | `bootstrap-docs.sh` 重跑 + `KNOWLOG:START/END` 托管块（同样的思路） |
-| 项目状态 | `.trellis/`（任务/spec/journal/config）+ `trellis` CLI 运行时 | `docs/`（日志/知识/领域）+ `scripts/`（体检/建日志/召回），**无守护进程、无运行时** |
+| 项目状态 | `.trellis/`（任务/spec/journal/config）+ `trellis` CLI 运行时 | `docs/`（日志/知识/领域）+ `.knowlog/`（体检/建日志/召回），**无守护进程、无运行时** |
 | 依赖 | Node CLI + config.yaml + 平台 hook 注入 | 只要 bash + python3；hook 是可选增强 |
 
 一句话：**Trellis 是"工作流框架 + 平台渲染器"，本 skill 是"文档体系脚手架 + 平台适配器"**。

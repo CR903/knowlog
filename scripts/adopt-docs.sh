@@ -10,9 +10,9 @@
 # 已有 `docs/knowledge/`：**不动**，只在其缺失的四个分类目录与索引处补齐（交给 bootstrap-docs.sh）。
 #
 # 用法：
-#   bash scripts/adopt-docs.sh                 # 只打印计划（dry-run，默认）
-#   bash scripts/adopt-docs.sh --apply         # 执行迁移
-#   bash scripts/adopt-docs.sh --apply --root /path/to/project
+#   bash ${TOOLNAME}/adopt-docs.sh                 # 只打印计划（dry-run，默认）
+#   bash ${TOOLNAME}/adopt-docs.sh --apply         # 执行迁移
+#   bash ${TOOLNAME}/adopt-docs.sh --apply --root /path/to/project
 set -euo pipefail
 
 ROOT=""; APPLY=0
@@ -36,7 +36,13 @@ if [ -z "$ROOT" ]; then
     #   · 项目内副本 → 目标是项目根
     if [ -f "$_self/SKILL.md" ] && [ -d "$_self/assets" ]; then ROOT="$PWD"; else ROOT="$_self"; fi
   }
+
 fi
+
+# 项目内工具目录：.knowlog（新）优先，兼容旧 scripts/
+TOOL="$ROOT/.knowlog"
+if [ ! -d "$TOOL" ] && [ -f "$ROOT/scripts/bootstrap-docs.sh" ]; then TOOL="$ROOT/scripts"; fi
+TOOLNAME="${TOOL#"$ROOT"/}"
 [ -d "$ROOT/docs" ] || echo "ℹ️  没有 docs/ 目录——本脚本用于"已有异构文档"的项目；全新项目请直接 bootstrap-docs.sh"
 export ROOT APPLY
 
@@ -110,7 +116,7 @@ PY
 )
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$ROOT" APPLY="$APPLY" PLAN="$PLAN" HERE="$HERE" python3 - <<'PY'
+ROOT="$ROOT" APPLY="$APPLY" PLAN="$PLAN" HERE="$HERE" TOOL="$TOOL" python3 - <<'PY'
 import datetime, json, os, pathlib, shutil, subprocess, sys
 
 root = pathlib.Path(os.environ["ROOT"]); plan = json.loads(os.environ["PLAN"]); apply = os.environ["APPLY"] == "1"
@@ -130,7 +136,7 @@ for it in found:
     print(f"   {it['src']}\n     → docs/{it['dst']}")
 
 if not apply:
-    print("\n执行：bash scripts/adopt-docs.sh --apply")
+    print("\n执行：bash ${TOOLNAME}/adopt-docs.sh --apply")
     sys.exit(0)
 
 # 备份索引
@@ -146,7 +152,7 @@ else:
     tpl_candidates = [
         pathlib.Path(os.environ.get("HERE", ".")).parent / "assets" / "daily-index.md.tmpl",
         pathlib.Path(os.environ.get("HERE", ".")) / "assets" / "daily-index.md.tmpl",
-        root / "scripts" / "assets" / "daily-index.md.tmpl",
+        pathlib.Path(os.environ["TOOL"]) / "assets" / "daily-index.md.tmpl",
     ]
     tpl = next((t for t in tpl_candidates if t.exists()), None)
     if tpl is not None:
@@ -160,7 +166,7 @@ else:
         idx.write_text(
             "# 开发日志索引\n\n"
             "> 唯一索引：日志位于 `docs/daily/<YYYY-MM>/YYYY-MM-DD_<slug>.md`（月份取日志日期所在月）。\n"
-            "> 新建：`bash scripts/new-daily-log.sh <slug>` · 校验：`bash scripts/check-daily-index.sh --strict`\n\n"
+            "> 新建：`bash ${TOOLNAME}/new-daily-log.sh <slug>` · 校验：`bash ${TOOLNAME}/check-daily-index.sh --strict`\n\n"
             "## 📊 统计\n\n> 计数用 `ls docs/daily/*/*.md | wc -l`。\n\n"
             "## 🔗 快速链接\n\n- [使用指南](README.md)\n- [日志模板](template.md)\n- [统一知识库](knowledge/index.md)\n",
             encoding="utf-8")
@@ -179,7 +185,7 @@ for it in found:
     print(f"   ✅ {it['src']} → docs/{it['dst']}")
 
 util = None
-for cand in [root / "scripts" / "index-util.py", pathlib.Path(os.environ.get("HERE", ".")) / "index-util.py"]:
+for cand in [pathlib.Path(os.environ["TOOL"]) / "index-util.py", pathlib.Path(os.environ.get("HERE", ".")) / "index-util.py"]:
     if cand.exists():
         util = cand
         break
@@ -192,11 +198,11 @@ if util:
                        capture_output=True)
     print(f"\n✅ 已登记 {len(moved)} 行索引")
 else:
-    print("\n⚠️  未找到 scripts/index-util.py（索引未登记）→ 请重跑 bootstrap-docs.sh 后再跑本脚本")
+    print("\n⚠️  未找到 .knowlog/index-util.py（索引未登记）→ 请重跑 bootstrap-docs.sh 后再跑本脚本")
 
 print("\n下一步（第 0 步别漏：迁移本身就是该记一笔的事）：")
-print("  0. 记一笔（写清你动了哪些历史文件）：bash scripts/new-daily-log.sh adopt-legacy-docs")
-print("  1. 补齐体系并生成门禁：bash scripts/bootstrap-docs.sh")
-print("  2. 校验：bash scripts/check-daily-index.sh --strict --fix-hint")
-print("  3. 历史月份若故意不登记：LEGACY_MONTHS=\"2026-04 2026-05\" bash scripts/check-daily-index.sh")
+print("  0. 记一笔（写清你动了哪些历史文件）：bash ${TOOLNAME}/new-daily-log.sh adopt-legacy-docs")
+print("  1. 补齐体系并生成门禁：bash ${TOOLNAME}/bootstrap-docs.sh")
+print("  2. 校验：bash ${TOOLNAME}/check-daily-index.sh --strict --fix-hint")
+print("  3. 历史月份若故意不登记：LEGACY_MONTHS=\"2026-04 2026-05\" bash ${TOOLNAME}/check-daily-index.sh")
 PY

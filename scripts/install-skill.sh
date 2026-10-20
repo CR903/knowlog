@@ -92,6 +92,11 @@ if [ -z "$ROOT" ]; then
   [ -n "$ROOT" ] || ROOT="$(pwd)"
 fi
 
+# 项目内工具目录：.knowlog（新）优先，兼容旧 scripts/
+TOOL="$ROOT/.knowlog"
+if [ ! -d "$TOOL" ] && [ -f "$ROOT/scripts/bootstrap-docs.sh" ]; then TOOL="$ROOT/scripts"; fi
+TOOLNAME="${TOOL#"$ROOT"/}"
+
 # ---- 检测本机有哪些 agent（与 install-recall 同口径） ----
 DETECTED=()
 if [ -d "$HOME/.claude" ] || command -v claude >/dev/null 2>&1; then DETECTED+=(claude); fi
@@ -114,7 +119,7 @@ targets_for() {   # 输出 "<agent>|<target dir or file>|<kind:dir|rules|pointer
     gemini)   echo "gemini|$ROOT/GEMINI.md|pointer" ;;
     copilot)  echo "copilot|$ROOT/.github/copilot-instructions.md|pointer" ;;
     dsh)      echo "dsh|$ROOT/.dsh/docs-recall.patch.yml + $ROOT/.dsh/bridge/|project-adapter" ;;
-    *)        echo "$a|$ROOT/AGENTS.md + $ROOT/scripts/|project-adapter" ;;
+    *)        echo "$a|$ROOT/AGENTS.md + $ROOT/.knowlog/|project-adapter" ;;
   esac
 }
 
@@ -246,9 +251,10 @@ for a in $AGENTS; do
       INSTALLED+=("$ag")
       ;;
     pointer|project-adapter)
-      if [ -x "$ROOT/scripts/install-recall.sh" ] && [ "$DRY" -eq 0 ]; then
+      _proj_tool="$ROOT/.knowlog"; [ -d "$_proj_tool" ] || _proj_tool="$ROOT/scripts"
+      if [ -x "$_proj_tool/install-recall.sh" ] && [ "$DRY" -eq 0 ]; then
         echo "   → [$ag] 交给项目内适配器（install-recall.sh --agent ${ag}）"
-        bash "$ROOT/scripts/install-recall.sh" --root "$ROOT" --agent "$ag" || true
+        bash "$_proj_tool/install-recall.sh" --root "$ROOT" --agent "$ag" || true
         INSTALLED+=("$ag")
       else
         echo "   ℹ️  [$ag] 需要在项目里跑：bash scripts/install-recall.sh --agent $ag"

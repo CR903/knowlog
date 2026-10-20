@@ -2,6 +2,20 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## 0.4.0 — 2026-10-20　（破坏性变更：目录改名）
+
+**项目内工具目录 `scripts/` → `.knowlog/`：归属明确，升级不再需要用户做选择**
+
+- 📁 **改名**：knowlog 在项目里的工具目录从 `scripts/` 改为 **`.knowlog/`**（隐藏 + 一看就知道是谁的）。
+  不再与项目自己的 `scripts/` 混淆（很多项目本来就有这个目录）；命令变为 `bash .knowlog/new-daily-log.sh …`，
+  AGENTS 托管块会自动改写。
+- 🔁 **自动迁移**：`init` / `bootstrap` 检测到旧布局（`scripts/` 里有 `bootstrap-docs.sh` + `assets/`）时，
+  把 knowlog 名下的文件迁到 `.knowlog/`；**你自己的业务脚本原样留在 `scripts/`**（目录非空就不删）。
+- ⬆️ **升级不需要用户选**：`.knowlog/VERSION` 与 skill 版本不一致 → **自动同步整套脚本**并打印清单；
+  `--no-force-scripts` 仅作应急开关。（此前要用户自己判断加不加 `--force-scripts`，不该由用户承担。）
+- 🔌 **兼容**：所有脚本、Claude/Codex 钩子薄壳、DSH 桥接都同时支持 `.knowlog/`（优先）与旧 `scripts/`。
+- 🧪 自测 **118 项**（新增 5 条：版本变旧自动同步、旧布局迁移、业务脚本不被误迁、迁移后体检仍绿）。
+
 ## 0.3.7 — 2026-10-20
 
 - 🐛 **`knowlog init --force-scripts` 被静默吞掉**：CLI 只透传了 `ends/project-name/knowledge-layout`，

@@ -175,9 +175,11 @@ def recall_check(probes: list[str]) -> tuple[bool, bool, str]:
     故意同时试两种调用形式：`bash scripts/knowledge-retrieve.sh "<probe>"`（任务里给用户的原话）
     与加 `--root` 的形式 —— 免得把"自建了等价召回、但 CLI 契约不同"的基线误判为"没有召回"。
     """
-    sh = PROJ / "scripts" / "knowledge-retrieve.sh"
+    sh = PROJ / ".knowlog" / "knowledge-retrieve.sh"
     if not sh.exists():
-        return False, False, "scripts/knowledge-retrieve.sh 不存在（召回入口缺失）"
+        sh = PROJ / "scripts" / "knowledge-retrieve.sh"
+    if not sh.exists():
+        return False, False, ".knowlog/knowledge-retrieve.sh 不存在（召回入口缺失）"
     attempts = []
     for probe in probes:
         attempts.append(([str(sh), probe], f"probe={probe!r}（cwd 形式）"))

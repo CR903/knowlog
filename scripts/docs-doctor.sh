@@ -39,7 +39,13 @@ if [ -z "$ROOT" ]; then
     #   · 项目内副本 → 目标是项目根
     if [ -f "$_self/SKILL.md" ] && [ -d "$_self/assets" ]; then ROOT="$PWD"; else ROOT="$_self"; fi
   }
+
 fi
+
+# 项目内工具目录：.knowlog（新）优先，兼容旧 scripts/
+TOOL="$ROOT/.knowlog"
+if [ ! -d "$TOOL" ] && [ -f "$ROOT/scripts/bootstrap-docs.sh" ]; then TOOL="$ROOT/scripts"; fi
+TOOLNAME="${TOOL#"$ROOT"/}"
 
 ARGS=(--root "$ROOT")
 [ "$STRICT" -eq 1 ] && ARGS+=(--strict)
@@ -51,7 +57,7 @@ FAILED=0; RESULTS=()
 
 printf '\033[1m🩺 docs-doctor — 文档体系体检（%s）\033[0m\n' "$ROOT"
 for i in 0 1 2; do
-  s="$ROOT/scripts/${SCRIPTS[$i]}"
+  s="$TOOL/${SCRIPTS[$i]}"
   if [ ! -f "$s" ]; then
     RESULTS+=("SKIP  ${NAMES[$i]}（缺 scripts/${SCRIPTS[$i]}）"); continue
   fi

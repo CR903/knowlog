@@ -19,7 +19,7 @@ set -euo pipefail
 
 # 环境变量归一化：KNOWLOG_HOME 为准，兼容旧的 DOCS_SYSTEM_HOME
 KNOWLOG_HOME="${KNOWLOG_HOME:-${DOCS_SYSTEM_HOME:-}}"
-ROOT=""; ENDS=""; PROJECT_NAME=""; LAYOUT="auto"; WITH_RECALL=0; DRY=0; FORCE_SCRIPTS=0
+ROOT=""; ENDS=""; PROJECT_NAME=""; LAYOUT="auto"; WITH_RECALL=0; DRY=0; FORCE_SCRIPTS=0; RESYNC=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --root)
@@ -39,7 +39,8 @@ while [ $# -gt 0 ]; do
       LAYOUT="$2"; shift 2 ;;
     --knowledge-layout=*) LAYOUT="${1#--knowledge-layout=}"; shift ;;
     --with-hook|--with-recall) WITH_RECALL=1; shift ;;
-    --force-scripts) FORCE_SCRIPTS=1; shift ;;        # 升级：用 skill 里的工具脚本覆盖项目内同名脚本
+    --force-scripts) FORCE_SCRIPTS=1; shift ;;        # 强制覆盖（一般不需要：版本不同会自动同步）
+    --no-force-scripts) RESYNC=0; shift ;;            # 只补缺失、不自动更新（应急开关）
     --dry-run) DRY=1; shift ;;
     -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
     *) echo "未知参数：$1" >&2; exit 2 ;;
@@ -63,7 +64,7 @@ fi
 
 # ---- assets 定位：优先自包含副本（项目内 scripts/assets/），其次 skill 原始位置 ----
 ASSETS=""
-for cand in "${KNOWLOG_HOME:-}/assets" "$HERE/assets" "$ROOT/scripts/assets" "$(cd "$HERE/.." && pwd)/assets"; do
+for cand in "${KNOWLOG_HOME:-}/assets" "$HERE/assets" "$ROOT/.knowlog/assets" "$ROOT/scripts/assets" "$(cd "$HERE/.." && pwd)/assets"; do
   if [ -n "$cand" ] && [ -d "$cand" ]; then ASSETS="$cand"; break; fi
 done
 if [ -z "$ASSETS" ]; then
@@ -108,7 +109,7 @@ if [ "$DRY" -eq 1 ]; then echo "   ⚠️  --dry-run：只打印计划，不落�
 echo
 
 ROOT="$ROOT" PROJECT_NAME="$PROJECT_NAME" DATE="$DATE" ENDS="$ENDS" LAYOUT="$LAYOUT" \
-ASSETS="$ASSETS" SOURCE_SCRIPT_DIR="$SOURCE_SCRIPT_DIR" DRY="$DRY" FORCE_SCRIPTS="$FORCE_SCRIPTS" python3 - <<'PY'
+ASSETS="$ASSETS" SOURCE_SCRIPT_DIR="$SOURCE_SCRIPT_DIR" DRY="$DRY" FORCE_SCRIPTS="$FORCE_SCRIPTS" RESYNC="$RESYNC" python3 - <<'PY'
 import os, pathlib, re, shutil, stat, sys
 
 root = pathlib.Path(os.environ["ROOT"]); assets = pathlib.Path(os.environ["ASSETS"])
@@ -125,8 +126,23 @@ MARK_END = "<!-- KNOWLOG:END -->"
 MARK_RE = r"<!--\s*KNOWLOG:START[^\n]*-->.*?<!--\s*KNOWLOG:END[^\n]*-->"
 CATS = ["architecture", "guides", "troubleshooting", "best-practices"]
 
+TOOL = ".knowlog"     # 项目内工具目录（knowlog 专有，隐藏）
+
+
+def transform(t: str) -> str:
+    """把「项目内工具目录」的引用改成 .knowlog（skill 自身路径 ~/.agents/.../scripts 不动）。"""
+    t = t.replace("$ROOT/scripts/", "$ROOT/.knowlog/")
+    t = t.replace('root / "scripts"', 'root / ".knowlog"')
+    t = t.replace("bash scripts/", "bash .knowlog/")
+    t = t.replace("scripts/assets", ".knowlog/assets")
+    t = t.replace("scripts/adapters", ".knowlog/adapters")
+    t = t.replace("scripts/index-util.py", ".knowlog/index-util.py")
+    t = t.replace("scripts/recall-core.py", ".knowlog/recall-core.py")
+    return t
+
 
 def put(rel: str, content: str):
+    content = transform(content)
     p = root / rel
     if p.exists():
         if p.read_text(encoding="utf-8", errors="ignore") == content:
@@ -165,7 +181,7 @@ def put_block_managed(rel: str, block: str, preamble: str = ""):
     兼容：老项目里可能是旧标记（DOCS-SYSTEM），这里顺手迁移到新标记（KNOWLOG），
     否则老项目会一直被判"缺少托管块"，人就得手工改。
     """
-    p = root / rel; block = normalize(block)
+    p = root / rel; block = transform(normalize(block))
     if p.exists():
         old = p.read_text(encoding="utf-8")
         if LEGACY_START in old and LEGACY_END in old and MARK_START not in old:
@@ -283,7 +299,7 @@ def render(tpl: str, extra: dict | None = None) -> str:
 
 
 # ---------- 1. 目录树 ----------
-dirs = ["docs/daily", "docs/agents", "docs/templates", "docs/domain context", "docs/knowledge", "scripts"]
+dirs = ["docs/daily", "docs/agents", "docs/templates", "docs/domain context", "docs/knowledge", TOOL]
 if layout == "by-end":
     for e in known_ends:
         for c in CATS:
@@ -335,71 +351,118 @@ SCRIPTS = ["bootstrap-docs.sh", "adopt-docs.sh", "new-daily-log.sh", "check-dail
            "check-knowledge-index.sh", "reindex-knowledge.sh", "new-keyword.sh", "knowledge-retrieve.sh",
            "install-recall.sh", "install-skill.sh", "package-skill.sh", "check-secrets.sh",
            "index-util.py", "recall-core.py"]
-same_src_dir = srcdir.resolve() == (root / "scripts").resolve()
-force_warned = False
-script_forced = 0
+
+dst_dir = root / TOOL
+legacy = root / "scripts"
+FORCE = os.environ.get("FORCE_SCRIPTS") == "1"
+RESYNC = os.environ.get("RESYNC") == "1"          # 默认自动同步（由插件决定，不问用户）
+
+SRC_VERSION_FILE = srcdir.parent / "VERSION"
+SRC_VERSION = SRC_VERSION_FILE.read_text(encoding="utf-8").strip() if SRC_VERSION_FILE.exists() else ""
+BUNDLE_VERSION = ""
+if (dst_dir / "VERSION").exists():
+    BUNDLE_VERSION = (dst_dir / "VERSION").read_text(encoding="utf-8").strip()
+
+
+# ---------- 迁移：老项目的 scripts/（仅搬 knowlog 名下资产，业务脚本原样留下） ----------
+migrated = 0
+if (legacy / "bootstrap-docs.sh").exists() and (legacy / "assets").is_dir():
+    if not dry:
+        dst_dir.mkdir(parents=True, exist_ok=True)
+    for item in sorted(legacy.iterdir()):
+        if item.name in SCRIPTS or item.name in {"assets", "adapters", "VERSION", "_paths.sh"}:
+            target = dst_dir / item.name
+            if not target.exists():
+                if not dry:
+                    shutil.move(str(item), str(target))
+                migrated += 1
+    if migrated:
+        notes.append(f"迁移：旧 scripts/ → {TOOL}/（{migrated} 项；names 与你自己的文件不重叠，业务脚本原样留在原处）")
+    if not dry:
+        try:
+            rest = [x for x in legacy.iterdir() if not x.name.startswith("._") and x.name != ".DS_Store"]
+            if not rest:
+                legacy.rmdir()                 # 只剩空壳才删；有用户文件就保留
+                notes.append("迁移：空的 scripts/ 已移除（避免与业务目录混淆）")
+        except Exception:
+            pass
+
+# ---------- 脚本同步（默认自动：bundle 版本 ≠ skill 版本 就整体更新） ----------
+same_src_dir = srcdir.resolve() == dst_dir.resolve()
+auto_sync = RESYNC and (BUNDLE_VERSION != SRC_VERSION)
+updated = 0
+skipped_scripts = 0
 for s in SCRIPTS:
     src = srcdir / s
-    dst = root / "scripts" / s
+    dst = dst_dir / s
     if not src.exists():
         notes.append(f"⚠️ 资产缺失：{s}（跳过）"); continue
-    if dst.exists() and same_src_dir and os.environ.get("FORCE_SCRIPTS") == "1":
-        # 同源自拷优先判定：此时即使内容"相同"也说明用户想升级但指错了来源
-        if not force_warned:
-            notes.append("⚠️ --force-scripts 的来源是项目内 scripts/ 自己（自拷无变化）。"
-                         "要升级请从**已安装的 skill** 跑："
-                         "bash ~/.agents/skills/knowlog/scripts/bootstrap-docs.sh --root . --force-scripts")
-            force_warned = True
-        notes.append(f"脚本 {s} 未变更（同源自拷）"); continue
-    if dst.exists() and dst.read_bytes() == src.read_bytes():
-        skipped.append(f"scripts/{s}"); continue
-    if dst.exists() and same_src_dir:
-        # 来源就是项目内那份：--force-scripts 也只能自拷，明确告诉用户正确姿势
-        if not force_warned:
-            notes.append("⚠️ --force-scripts 的来源是项目内 scripts/ 自己（自拷无变化）。"
-                         "要升级请从**已安装的 skill** 跑："
-                         "bash ~/.agents/skills/knowlog/scripts/bootstrap-docs.sh --root . --force-scripts")
-            force_warned = True
-        notes.append(f"脚本 {s} 未变更（同源自拷）"); continue
+    if same_src_dir:
+        notes.append("ℹ️ 来源就是项目自己的 .knowlog，无需自拷（升级请从已安装的 skill 跑）")
+        break
+    try:
+        content = transform(src.read_text(encoding="utf-8"))
+        data = content.encode("utf-8")
+    except UnicodeDecodeError:
+        data = src.read_bytes()
     if dst.exists():
-        if os.environ.get("FORCE_SCRIPTS") == "1":
-            if not dry:
-                shutil.copy2(src, dst)
-                os.chmod(dst, dst.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-            created.append(f"scripts/{s}（--force-scripts 覆盖）")
-            script_forced += 1
+        try:
+            same = dst.read_text(encoding="utf-8", errors="replace") == content
+        except Exception:
+            same = dst.read_bytes() == data
+        if same:
+            skipped_scripts += 1
             continue
-        notes.append(f"⚠️ scripts/{s} 已存在且内容不同 → 保留你的版本"
-                     f"（升级：从已安装的 skill 跑 bootstrap-docs.sh --force-scripts）"); continue
+        if not (auto_sync or FORCE):
+            notes.append(f"⚠️ {TOOL}/{s} 内容不同但版本一致 → 保留（--force-scripts 可强制覆盖）")
+            continue
+        if not dry:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.write_bytes(data)
+            os.chmod(dst, dst.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        updated += 1
+        continue
     if not dry:
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dst)
+        dst.write_bytes(data)
         os.chmod(dst, dst.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
-    created.append(f"scripts/{s}")
+    created.append(f"{TOOL}/{s}")
 
-if os.environ.get("FORCE_SCRIPTS") == "1" and script_forced == 0 and skipped:
-    notes.append("提示：--force-scripts 这次没有覆盖任何脚本（内容都与来源一致）。"
-                 "若你**期望**有更新 → 很可能是已安装的 skill 副本较旧："
-                 "先 `npx skills update knowlog`（或用 KNOWLOG_HOME=<较新副本> 再跑），再重试本命令。"
-                 "（真机踩过：副本没更新时，升级会静默地「无事发生」，让人误以为 bug。）")
+if updated:
+    created.append(f"{TOOL}/（自动同步 {updated} 个脚本：{BUNDLE_VERSION or '无版本'} → {SRC_VERSION or '未知'}）")
 
-# assets 自包含副本（供复制后的 bootstrap 独立运行）
-asset_dst = root / "scripts" / "assets"
+# 版本戳：下次靠它判断“要不要自动同步”
+if SRC_VERSION and (not (dst_dir / "VERSION").exists()
+                    or (dst_dir / "VERSION").read_text(encoding="utf-8").strip() != SRC_VERSION):
+    if not dry:
+        (dst_dir / "VERSION").write_text(SRC_VERSION + "\n", encoding="utf-8")
+    created.append(f"{TOOL}/VERSION（{SRC_VERSION}）")
+
+# assets 自包含副本（供复制后的 bootstrap 独立运行；模板里的 scripts/ 也要改成 .knowlog/）
+asset_dst = dst_dir / "assets"
 if assets.resolve() != asset_dst.resolve():
     if dry:
-        created.append("scripts/assets/（模板副本）")
+        created.append(f"{TOOL}/assets/（模板副本）")
     else:
         asset_dst.mkdir(parents=True, exist_ok=True)
         n = 0
         for f in sorted(assets.glob("*.tmpl")):
             t = asset_dst / f.name
-            if not t.exists() or t.read_bytes() != f.read_bytes():
-                shutil.copy2(f, t); n += 1
-        created.append(f"scripts/assets/（{n} 个模板更新）")
-for extra_src, extra_dst in [(srcdir.parent / "adapters", root / "scripts" / "adapters")]:
-    if extra_src.is_dir() and not extra_dst.exists() and not dry:
+            try:
+                content = transform(f.read_text(encoding="utf-8")).encode("utf-8")
+            except UnicodeDecodeError:
+                content = f.read_bytes()
+            if not t.exists() or t.read_bytes() != content:
+                t.write_bytes(content); n += 1
+        if n:
+            created.append(f"{TOOL}/assets/（{n} 个模板更新）")
+
+if not dry:
+    extra_src = srcdir.parent / "adapters"
+    extra_dst = dst_dir / "adapters"
+    if extra_src.is_dir() and not extra_dst.exists():
         shutil.copytree(extra_src, extra_dst)
-        created.append("scripts/adapters/（各 agent 适配器）")
+        created.append(f"{TOOL}/adapters/（各 agent 适配器）")
 
 # ---------- 4. 约束：托管块（规则）+ 手工维护区（路由表，只创建一次） ----------
 put_block_managed("AGENTS.md", render("agents-block.md.tmpl"),
@@ -424,18 +487,19 @@ for n in notes:
 PY
 
 if [ "$DRY" -eq 0 ]; then
-  if [ "$WITH_RECALL" -eq 1 ] && [ -f "$ROOT/scripts/install-recall.sh" ]; then
+  TOOL="$ROOT/.knowlog"; [ -d "$TOOL" ] || TOOL="$ROOT/scripts"
+  if [ "$WITH_RECALL" -eq 1 ] && [ -f "$TOOL/install-recall.sh" ]; then
     echo
     echo "🔌 安装关键词召回适配器（按本机检测到的 agent）"
-    bash "$ROOT/scripts/install-recall.sh" --root "$ROOT" --agent auto
+    bash "$TOOL/install-recall.sh" --root "$ROOT" --agent auto
   fi
   echo
   echo "🔎 自检："
-  if [ -f "$ROOT/scripts/check-daily-index.sh" ]; then bash "$ROOT/scripts/check-daily-index.sh" --root "$ROOT" || true; fi
-  if [ -f "$ROOT/scripts/check-knowledge-index.sh" ]; then bash "$ROOT/scripts/check-knowledge-index.sh" --root "$ROOT" || true; fi
+  if [ -f "$TOOL/check-daily-index.sh" ]; then bash "$TOOL/check-daily-index.sh" --root "$ROOT" || true; fi
+  if [ -f "$TOOL/check-knowledge-index.sh" ]; then bash "$TOOL/check-knowledge-index.sh" --root "$ROOT" || true; fi
   echo
   echo "下一步："
-  echo "  1. 记日志：bash scripts/new-daily-log.sh <slug>"
+  echo "  1. 记日志：bash ${TOOL#$ROOT/}/new-daily-log.sh <slug>"
   echo "  2. 沉淀：bash scripts/new-knowledge.sh <端|--flat> <分类> <name> \"<说明>\" --source <日志路径>"
   echo "  3. 召回：bash scripts/new-keyword.sh \"<正则>\" \"<提示>\" \"<文档>\"（并 install-recall.sh 装到各 agent）"
   echo "  4. 门禁：bash scripts/check-daily-index.sh --strict && bash scripts/check-knowledge-index.sh --strict"

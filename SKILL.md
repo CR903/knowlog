@@ -57,14 +57,14 @@ agent 的上下文会被压缩、会丢；**文件不会**。所以约定：凡�
 #    ① 端（end）怎么分 —— 你探测出的是 backend/frontend，对不对？多仓 monorepo 要不要按子仓分？
 #    ② 要不要装 Claude Code 召回钩子（--with-hook）
 #    ③ 项目名（写进索引与 AGENTS.md 块）
-bash scripts/bootstrap-docs.sh --project-name "我的项目" [--ends "backend frontend"] \
+bash .knowlog/bootstrap-docs.sh --project-name "我的项目" [--ends "backend frontend"] \
     [--knowledge-layout auto|flat|by-end] [--with-recall] [--dry-run]
 
 # 2) 幂等：可重复跑；已存在的文件一律不覆盖；AGENTS.md 只在托管块标记之间写入
 # 3) 跑完自检必须两个门禁都绿：
-#    bash scripts/check-daily-index.sh --strict        # 日志 ↔ 索引
-#    bash scripts/check-knowledge-index.sh --strict    # 知识 ↔ 索引（含 by-end 两级）
-# 4) 召回要落到具体 agent 才生效：bash scripts/install-recall.sh --list 然后 --agent auto
+#    bash .knowlog/check-daily-index.sh --strict        # 日志 ↔ 索引
+#    bash .knowlog/check-knowledge-index.sh --strict    # 知识 ↔ 索引（含 by-end 两级）
+# 4) 召回要落到具体 agent 才生效：bash .knowlog/install-recall.sh --list 然后 --agent auto
 ```
 
 搭建完成后，把结果讲给用户听**结构长什么样、以后每次收尾怎么用**（不要只说"建好了"），
@@ -73,23 +73,23 @@ bash scripts/bootstrap-docs.sh --project-name "我的项目" [--ends "backend fr
 **B. 任务收尾记录**（用户说"做完了""记一下日志""沉淀一下"）：
 
 ```bash
-bash scripts/new-daily-log.sh <slug> [YYYY-MM-DD]     # 落月份目录 + 插索引行骨架
+bash .knowlog/new-daily-log.sh <slug> [YYYY-MM-DD]     # 落月份目录 + 插索引行骨架
 # 然后由你（agent）把日志内容写实：概述 / 关键实现 / 问题与根因 / 判据 / 沉淀
-bash scripts/new-knowledge.sh <端> <分类> <name> "<一句话说明>" --source "<日志路径>"   # 若这次有可复用结论
-bash scripts/check-daily-index.sh --strict           # 门禁：红灯不许收摊
+bash .knowlog/new-knowledge.sh <端> <分类> <name> "<一句话说明>" --source "<日志路径>"   # 若这次有可复用结论
+bash .knowlog/check-daily-index.sh --strict           # 门禁：红灯不许收摊
 ```
 
 **沉淀会自动挂召回规则**（默认从「来源日志里的代码标识符」提取，最多 3 条）。
 你（agent）比脚本更清楚哪个标识符是"写码当下会出现的"，所以**优先显式传**：
 
 ```bash
-bash scripts/new-knowledge.sh --flat troubleshooting tenant-isolation "多租户查询必须带 tenantId" \
+bash .knowlog/new-knowledge.sh --flat troubleshooting tenant-isolation "多租户查询必须带 tenantId" \
   --source docs/daily/2026-10/2026-10-20_xxx.md --keywords "tenantId,tenant_id"
 ```
 
 - `--no-keyword`：明确这条知识不需要召回（纯流程/手册），会记入 `_exempt`，门禁不因此变红。
 - 一条规则都没有、却已有知识文档时，结构门禁**会红**（防止召回永远空转）。
-- 存量知识缺规则：`bash scripts/reindex-knowledge.sh --apply`（先不带 `--apply` 看候选）。
+- 存量知识缺规则：`bash .knowlog/reindex-knowledge.sh --apply`（先不带 `--apply` 看候选）。
 
 填日志时注意：**不要复述 diff**。要写"为什么这么做""踩了什么坑""怎么证明它是对的"。
 判断是否沉淀知识的标准是**这条结论会不会被重复踩/被反复问**；一次性细节留在日志里就够。
@@ -97,10 +97,10 @@ bash scripts/new-knowledge.sh --flat troubleshooting tenant-isolation "多租户
 ## 采纳既有文档（项目已经有 docs，但结构不一样）
 
 ```bash
-bash scripts/adopt-docs.sh              # 默认 dry-run：扫描 + 打印迁移计划（不动文件）
-bash scripts/adopt-docs.sh --apply      # 执行：按文件名日期归入 docs/daily/<YYYY-MM>/，并登记索引
-bash scripts/bootstrap-docs.sh          # 再补齐缺失的结构与脚本
-bash scripts/check-daily-index.sh --strict
+bash .knowlog/adopt-docs.sh              # 默认 dry-run：扫描 + 打印迁移计划（不动文件）
+bash .knowlog/adopt-docs.sh --apply      # 执行：按文件名日期归入 docs/daily/<YYYY-MM>/，并登记索引
+bash .knowlog/bootstrap-docs.sh          # 再补齐缺失的结构与脚本
+bash .knowlog/check-daily-index.sh --strict
 ```
 
 要点：
@@ -108,7 +108,7 @@ bash scripts/check-daily-index.sh --strict
 - **只采纳"像日志"的文件**：文件名以日期开头（`2026-08-01-x.md`、`2026-08-03_中文标题.md` 都行）；
   `README/AGENTS/CHANGELOG` 与非日期文件**不动**
 - **已有 `docs/knowledge/`、`docs/domain context/` 原样保留**，只补它们缺的分类目录与索引；
-  知识文档已有但索引只登记了一部分 → 用 `bash scripts/reindex-knowledge.sh --apply` 从磁盘反向补齐（只增不删）
+  知识文档已有但索引只登记了一部分 → 用 `bash .knowlog/reindex-knowledge.sh --apply` 从磁盘反向补齐（只增不删）
 - 迁移前自动备份 `docs/index.md.bak`；优先 `git mv`（保历史），非 git 项目退化为 `mv`
 - 目标文件名规范化为 `<日期>_<kebab-slug>`（纯中文标题保留以保可读性，门禁允许）
 - 采纳后**必跑门禁**；历史月份若故意不登记，先用 `LEGACY_MONTHS="2026-04 2026-05"` 降级为告警
@@ -118,12 +118,12 @@ bash scripts/check-daily-index.sh --strict
 
 ## 让召回落到具体 agent（这一步常常被忘）
 
-**匹配逻辑只有一份**（`scripts/recall-core.py`），各 agent 的适配器只是"怎么把它送进上下文"：
+**匹配逻辑只有一份**（`.knowlog/recall-core.py`），各 agent 的适配器只是"怎么把它送进上下文"：
 
 ```bash
-bash scripts/install-recall.sh --list          # 看本机检测到哪些 agent、各自会写什么（不落盘）
-bash scripts/install-recall.sh --agent auto --dry-run   # 先看计划
-bash scripts/install-recall.sh --agent auto    # 确认后再装（幂等）
+bash .knowlog/install-recall.sh --list          # 看本机检测到哪些 agent、各自会写什么（不落盘）
+bash .knowlog/install-recall.sh --agent auto --dry-run   # 先看计划
+bash .knowlog/install-recall.sh --agent auto    # 确认后再装（幂等）
 ```
 
 **装之前先问用户**（同 bootstrap 的三问）：往 `.claude/settings.json`、`.codex/hooks.json`、
@@ -143,7 +143,7 @@ bash scripts/install-recall.sh --agent auto    # 确认后再装（幂等）
 
 **关键取舍**：宁可"静态规则 + 命令行召回"也不装"看起来能自动但实际不触发"的适配器 ——
 后者会让人以为有保护，实则没有（OpenCode v2 的 v1 插件就是这种陷阱）。
-任何 agent 都能用的底线是 `AGENTS.md` 托管块 + `bash scripts/knowledge-retrieve.sh "<prompt>"`。
+任何 agent 都能用的底线是 `AGENTS.md` 托管块 + `bash .knowlog/knowledge-retrieve.sh "<prompt>"`。
 
 ## 关键不变量（改动体系时不能破）
 
@@ -152,8 +152,8 @@ bash scripts/install-recall.sh --agent auto    # 确认后再装（幂等）
 2. **三处月份一致**：目录月 == 文件名月 == `docs/index.md` 所在表格月。脚本会校验。
 3. **索引双向一致**：每篇日志在 `docs/index.md` 有且仅有一行；每条链接都指向真实文件。
 4. **知识登记到索引**：by-end 布局是"分端 `index.md` + 根 `index.md`"两级；flat 布局只有根 `docs/knowledge/index.md`。
-   两种都由 `bash scripts/check-knowledge-index.sh --strict` 校验。
-5. **索引写入只有一份实现**：`scripts/index-util.py`（`new-daily-log.sh` 与 `adopt-docs.sh` 都调它）——
+   两种都由 `bash .knowlog/check-knowledge-index.sh --strict` 校验。
+5. **索引写入只有一份实现**：`.knowlog/index-util.py`（`new-daily-log.sh` 与 `adopt-docs.sh` 都调它）——
    索引格式一漂移，门禁就会误报，人就开始绕过门禁。
 6. **召回是非全量的**：关键词命中只给"提示 + 文档路径"，确认相关再全量读那份文档。
    全量注入会让真正相关的规则被淹没，且上下文预算很贵。
@@ -188,9 +188,9 @@ bash scripts/install-recall.sh --agent auto    # 确认后再装（幂等）
 **先跑总入口**（一次跑完全部三项，并给出可复制的修复命令）：
 
 ```bash
-bash scripts/docs-doctor.sh --fix-hint          # 结构 + 日志索引 + 知识索引
-bash scripts/docs-doctor.sh --strict            # 告警也算失败，接 CI / pre-commit 用这个
-bash scripts/docs-doctor.sh --quiet             # 只输出汇总（pre-commit 场景）
+bash .knowlog/docs-doctor.sh --fix-hint          # 结构 + 日志索引 + 知识索引
+bash .knowlog/docs-doctor.sh --strict            # 告警也算失败，接 CI / pre-commit 用这个
+bash .knowlog/docs-doctor.sh --quiet             # 只输出汇总（pre-commit 场景）
 ```
 
 三项的分工：**结构规范**（目录/脚本齐备、布局没混用、托管块在、召回表可用、有没有该采纳却没采纳的旧日志）、
@@ -222,9 +222,9 @@ bash scripts/docs-doctor.sh --quiet             # 只输出汇总（pre-commit �
 ```bash
 # ① 本体安装：--mode auto 默认"共享权威副本（~/.agents/skills/<name>）+ 各 agent 软链"，
 #    没有共享仓库时自动退回"每 agent 真复制"；项目范围默认真复制（可提交）
-bash scripts/install-skill.sh --agent auto        # 或 --mode link|copy、--scope project
-bash scripts/bootstrap-docs.sh --with-recall      # ② 在某个项目里落地（结构 + 脚本 + 约束 + 召回）
-bash scripts/docs-doctor.sh --fix-hint            # ③ 体检
+bash .knowlog/install-skill.sh --agent auto        # 或 --mode link|copy、--scope project
+bash .knowlog/bootstrap-docs.sh --with-recall      # ② 在某个项目里落地（结构 + 脚本 + 约束 + 召回）
+bash .knowlog/docs-doctor.sh --fix-hint            # ③ 体检
 ```
 
 - 各 agent 的**真实**安装位置、Codex/Cursor/DSH 为什么只能"项目级"、要不要自造 skill 管理器、

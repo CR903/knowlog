@@ -38,7 +38,13 @@ if [ -z "$ROOT" ]; then
     #   · 项目内副本 → 目标是项目根
     if [ -f "$_self/SKILL.md" ] && [ -d "$_self/assets" ]; then ROOT="$PWD"; else ROOT="$_self"; fi
   }
+
 fi
+
+# 项目内工具目录：.knowlog（新）优先，兼容旧 scripts/
+TOOL="$ROOT/.knowlog"
+if [ ! -d "$TOOL" ] && [ -f "$ROOT/scripts/bootstrap-docs.sh" ]; then TOOL="$ROOT/scripts"; fi
+TOOLNAME="${TOOL#"$ROOT"/}"
 TPL="$ROOT/docs/template.md"
 INDEX="$ROOT/docs/index.md"
 PROJECT_NAME="${PROJECT_NAME:-$(basename "$ROOT")}"
@@ -90,7 +96,7 @@ if [ "$WRITE_INDEX" -eq 0 ] || [ ! -f "$INDEX" ]; then
 fi
 
 TASK_SLUG="$(printf '%s' "$DATE" | cut -c6-10)-${SLUG}"
-UTIL="$ROOT/scripts/index-util.py"
+UTIL="$TOOL/index-util.py"
 [ -f "$UTIL" ] || {
   echo "❌ 缺少 ${UTIL}（索引写入原语）。请重跑：bash scripts/bootstrap-docs.sh" >&2
   exit 1; }

@@ -40,7 +40,7 @@ npx knowlog doctor                # ③ 体检：结构规范 + 日志↔索引 
 > 不想走 `npx` 也行：CLI 就在已安装的 skill 里 —— `node ~/.agents/skills/knowlog/bin/knowlog.mjs <命令>`。
 > （`npx knowlog` 走 npm 上正式发布的包；0.3.0 及更早没发布 npm，那时只有 `node` 这条路。）
 
-> 更省事的日常姿势：`init` 之后项目里就有全套 `scripts/`，直接用它 —— `bash scripts/new-daily-log.sh <slug>`、`bash scripts/docs-doctor.sh`。
+> 更省事的日常姿势：`init` 之后项目里就有全套 `.knowlog/`，直接用它 —— `bash .knowlog/new-daily-log.sh <slug>`、`bash .knowlog/docs-doctor.sh`。
 
 **不指定 `--agent` 时不会碰你的 agent 配置**（`.claude/settings.json`、`opencode.json`…）；要装召回再说一句。
 
@@ -110,8 +110,8 @@ npx skills update knowlog        # 用管理器升级（按 skillFolderHash 比�
 npx skills remove knowlog        # 卸载
 ```
 
-项目里的 `docs/` 与 `scripts/` 是**你的资产**，不随 skill 卸载而消失（这是刻意的：skill 是工具，文档体系是项目的一部分）。
-重新升级项目内那套：`bash scripts/bootstrap-docs.sh`（幂等，只刷新脚本/资产/托管块，不覆盖你手改的内容）；
+项目里的 `docs/` 与 `.knowlog/` 是**你的资产**，不随 skill 卸载而消失（这是刻意的：skill 是工具，文档体系是项目的一部分）。
+升级项目内那套：**不需要手动**——`init`/`bootstrap` 会比对版本自动同步（旧项目会自动迁移，业务脚本不动）；
 要**整体升到上游脚本版本**：`bash ~/.agents/skills/knowlog/scripts/bootstrap-docs.sh --root . --force-scripts`（必须从已安装的 skill 跑）。
 
 ## 安全 / 防泄露

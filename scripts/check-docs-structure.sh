@@ -11,7 +11,7 @@
 # 悄悄失效 —— 而这类问题不会在"索引比对"里暴露出来。
 #
 # 用法：
-#   bash scripts/check-docs-structure.sh [--strict] [--fix-hint] [--root DIR]
+#   bash ${TOOLNAME}/check-docs-structure.sh [--strict] [--fix-hint] [--root DIR]
 # 退出码：0 通过；1 有 ERROR（或 --strict 下有 WARN）
 set -euo pipefail
 
@@ -36,10 +36,16 @@ if [ -z "$ROOT" ]; then
     #   · 项目内副本 → 目标是项目根
     if [ -f "$_self/SKILL.md" ] && [ -d "$_self/assets" ]; then ROOT="$PWD"; else ROOT="$_self"; fi
   }
+
 fi
+
+# 项目内工具目录：.knowlog（新）优先，兼容旧 scripts/
+TOOL="$ROOT/.knowlog"
+if [ ! -d "$TOOL" ] && [ -f "$ROOT/scripts/bootstrap-docs.sh" ]; then TOOL="$ROOT/scripts"; fi
+TOOLNAME="${TOOL#"$ROOT"/}"
 export ROOT STRICT FIX
 
-python3 - <<'PY'
+TOOL="$TOOL" python3 - <<'PY'
 import json, os, pathlib, re, stat, sys
 
 root = pathlib.Path(os.environ["ROOT"])
@@ -71,28 +77,28 @@ def exists(rel):
 # ---------- 1. 目录与文件齐备性 ----------
 for d in ["docs", "docs/daily", "docs/knowledge"]:
     if not (root / d).is_dir():
-        err(d + "/", "必需目录缺失", "bash scripts/bootstrap-docs.sh   # 幂等补齐")
+        err(d + "/", "必需目录缺失", "bash ${TOOLNAME}/bootstrap-docs.sh   # 幂等补齐")
 for d in ["docs/domain context", "docs/agents", "docs/templates"]:
     if not (root / d).is_dir():
-        warn(d + "/", "推荐目录缺失（领域记忆 / agent 约定 / 文档模板）", "bash scripts/bootstrap-docs.sh")
+        warn(d + "/", "推荐目录缺失（领域记忆 / agent 约定 / 文档模板）", "bash ${TOOLNAME}/bootstrap-docs.sh")
 
 for f in ["docs/index.md", "docs/README.md", "docs/template.md", "docs/knowledge/index.md"]:
     if not exists(f):
-        err(f, "必需文件缺失", "bash scripts/bootstrap-docs.sh")
+        err(f, "必需文件缺失", "bash ${TOOLNAME}/bootstrap-docs.sh")
 
 # 脚本齐备且可执行（缺哪个，"收尾记日志"这条链就断在哪）
 need_exec = ["new-daily-log.sh", "check-daily-index.sh", "check-docs-structure.sh",
              "new-knowledge.sh", "check-knowledge-index.sh", "new-keyword.sh",
              "knowledge-retrieve.sh", "install-recall.sh", "bootstrap-docs.sh", "adopt-docs.sh"]
 for s in need_exec:
-    p = root / "scripts" / s
+    p = pathlib.Path(os.environ["TOOL"]) / s
     if not p.exists():
-        err(f"scripts/{s}", "脚本缺失", "bash scripts/bootstrap-docs.sh")
+        err(f"scripts/{s}", "脚本缺失", "bash ${TOOLNAME}/bootstrap-docs.sh")
     elif not (p.stat().st_mode & stat.S_IXUSR):
         warn(f"scripts/{s}", "缺少可执行位", f"chmod +x scripts/{s}")
 for s in ["index-util.py", "recall-core.py"]:
-    if not (root / "scripts" / s).exists():
-        err(f"scripts/{s}", "脚本缺失（索引写入/召回的单一实现）", "bash scripts/bootstrap-docs.sh")
+    if not (pathlib.Path(os.environ["TOOL"]) / s).exists():
+        err(f"scripts/{s}", "脚本缺失（索引写入/召回的单一实现）", "bash ${TOOLNAME}/bootstrap-docs.sh")
 
 # ---------- 2. 知识库布局不变量 ----------
 KNOW = root / "docs" / "knowledge"
@@ -102,7 +108,7 @@ flat_cats = [c for c in CATS if (KNOW / c).is_dir()]
 layout = "by-end" if end_dirs else ("flat" if flat_cats else "unknown")
 
 if layout == "unknown":
-    err("docs/knowledge/", "既没有端目录也没有分类目录：布局未建立", "bash scripts/bootstrap-docs.sh --knowledge-layout flat")
+    err("docs/knowledge/", "既没有端目录也没有分类目录：布局未建立", "bash ${TOOLNAME}/bootstrap-docs.sh --knowledge-layout flat")
 elif layout == "by-end":
     # 混用检测：根下同时存在分类目录（说明有人把 flat 的知识塞进了 by-end 项目）
     stray = list(flat_cats)      # 判定修正：by-end 项目里根下**不应**有任何裸分类目录（哪怕端里也有同名分类）
@@ -113,14 +119,14 @@ elif layout == "by-end":
     for e in end_dirs:
         for f in ("README.md", "index.md"):
             if not (e / f).exists():
-                warn(f"docs/knowledge/{e.name}/{f}", "端目录缺说明/索引", "bash scripts/bootstrap-docs.sh")
+                warn(f"docs/knowledge/{e.name}/{f}", "端目录缺说明/索引", "bash ${TOOLNAME}/bootstrap-docs.sh")
         missing = [c for c in CATS if not (e / c).is_dir()]
         if missing:
-            warn(f"docs/knowledge/{e.name}/", "缺分类目录：" + ", ".join(missing), "bash scripts/bootstrap-docs.sh")
+            warn(f"docs/knowledge/{e.name}/", "缺分类目录：" + ", ".join(missing), "bash ${TOOLNAME}/bootstrap-docs.sh")
 else:
     for c in CATS:
         if not (KNOW / c).is_dir():
-            warn(f"docs/knowledge/{c}/", "分类目录缺失（flat 布局）", "bash scripts/bootstrap-docs.sh")
+            warn(f"docs/knowledge/{c}/", "分类目录缺失（flat 布局）", "bash ${TOOLNAME}/bootstrap-docs.sh")
     # flat 布局下，除了四个分类与常见附属目录，其它目录属"非常规分类"（例如历史 notes/）
     ALLOW_EXTRA = {"templates", "assets", "research", "archive"}
     for d in sorted(x for x in KNOW.iterdir() if x.is_dir()):
@@ -145,11 +151,11 @@ if idx.exists():
         for l in re.findall(r"\]\((daily/[^)\s]+?\.md)\)", txt):
             if not re.match(r"^daily/\d{4}-\d{2}/", l):
                 err(l, "索引里存在旧扁平路径（结构不符规范）",
-                    "bash scripts/check-daily-index.sh --fix-hint")
+                    "bash ${TOOLNAME}/check-daily-index.sh --fix-hint")
 
 kmap = KNOW / ".keyword-map.json"
 if not kmap.exists():
-    err("docs/knowledge/.keyword-map.json", "召回表缺失", "bash scripts/bootstrap-docs.sh")
+    err("docs/knowledge/.keyword-map.json", "召回表缺失", "bash ${TOOLNAME}/bootstrap-docs.sh")
 else:
     try:
         d = json.loads(kmap.read_text(encoding="utf-8") or "{}")
@@ -165,7 +171,7 @@ else:
                  "沉淀时用 new-knowledge.sh（自动挂规则）；存量用 reindex-knowledge.sh --apply 补齐")
         elif not real:
             info("docs/knowledge/.keyword-map.json", "还没有知识文档/召回规则（尚无可用结论，属正常）",
-                 'bash scripts/new-knowledge.sh --flat <分类> <name> "<结论>" --source <日志>')
+                 'bash ${TOOLNAME}/new-knowledge.sh --flat <分类> <name> "<结论>" --source <日志>')
         for k in real:
             for doc in d[k].get("docs", []):
                 if not (root / doc.split("#")[0]).exists():
@@ -176,30 +182,30 @@ else:
 # ---------- 4. 约束是否就位（AGENTS.md 托管块） ----------
 ag = root / "AGENTS.md"
 if not ag.exists():
-    err("AGENTS.md", "缺失（约束没有任何落点）", "bash scripts/bootstrap-docs.sh")
+    err("AGENTS.md", "缺失（约束没有任何落点）", "bash ${TOOLNAME}/bootstrap-docs.sh")
 else:
     t = ag.read_text(encoding="utf-8")
     LEGACY = "DOCS" + "-SYSTEM"
     if "<!-- KNOWLOG:START" not in t or "<!-- KNOWLOG:END" not in t:
         if LEGACY + ":START" in t and LEGACY + ":END" in t:
             warn("AGENTS.md", "托管块仍是旧标记 DOCS-SYSTEM（rename 之前写入的）",
-                 "bash scripts/bootstrap-docs.sh   # 会把它迁移成 KNOWLOG 标记")
+                 "bash ${TOOLNAME}/bootstrap-docs.sh   # 会把它迁移成 KNOWLOG 标记")
         # 有些项目（尤其"先有规范、后引入本 skill"的）已经把等价规则手写在 AGENTS.md 里。
         # 那不该判 ERROR —— 否则会逼人塞一个重复规则块，两份真相必然漂移。
         equivalent = ("new-daily-log" in t or "daily/<YYYY-MM>" in t or "daily/YYYY-MM" in t) and \
                      ("check-daily-index" in t or "docs-doctor" in t)
         if equivalent:
             warn("AGENTS.md", "未用 DOCS-SYSTEM 托管块，但检出手写等价规范（易与脚本漂移）",
-                 "把规则搬进托管块：bash scripts/bootstrap-docs.sh（块内脚本维护，块外保留你的内容）")
+                 "把规则搬进托管块：bash ${TOOLNAME}/bootstrap-docs.sh（块内脚本维护，块外保留你的内容）")
         else:
             err("AGENTS.md", "既无 DOCS-SYSTEM 托管块，也未检出等价规范（日志规范/门禁没被声明）",
-                "bash scripts/bootstrap-docs.sh")
+                "bash ${TOOLNAME}/bootstrap-docs.sh")
     if "KNOWLOG:START" in t:
         # 门禁命令名三选一即可：新版模板只写 docs-doctor，旧版写 check-daily-index
         if not any(k in t for k in ("docs-doctor", "check-daily-index", "check-knowledge-index")):
-            warn("AGENTS.md", "托管块里没写门禁命令（agent 无从知道要跑什么）", "bash scripts/bootstrap-docs.sh")
+            warn("AGENTS.md", "托管块里没写门禁命令（agent 无从知道要跑什么）", "bash ${TOOLNAME}/bootstrap-docs.sh")
     if not re.search(r"^##[^\n]*🧭[^\n]*(路由|Domain Context Routing)", t, re.M):
-        warn("AGENTS.md", "缺少「领域上下文路由表（手工维护）」一节", "bash scripts/bootstrap-docs.sh")
+        warn("AGENTS.md", "缺少「领域上下文路由表（手工维护）」一节", "bash ${TOOLNAME}/bootstrap-docs.sh")
 
 # 召回适配器是否装过（有钩子才叫"自动"）
 adapters = [".claude/settings.json", ".codex/hooks.json", "opencode.json",
@@ -207,7 +213,7 @@ adapters = [".claude/settings.json", ".codex/hooks.json", "opencode.json",
             "docs/agents/recall.md"]
 if not any(exists(a) for a in adapters):
     info("（召回适配器）", "没有任何 agent 适配器 → 只能靠手工跑 knowledge-retrieve.sh",
-         "bash scripts/install-recall.sh --agent auto")
+         "bash ${TOOLNAME}/install-recall.sh --agent auto")
 
 # ---------- 5. 该采纳但没采纳的残留 ----------
 SKIP = {".git", "node_modules", "vendor", "dist", "build", ".venv", "venv", "__pycache__",
@@ -226,7 +232,7 @@ for dirpath, dirnames, filenames in os.walk(root):
             strays.append(f"{rel_dir}/{fn}")
 if strays:
     warn(f"（{len(strays)} 篇日期日志在体系外）", "示例：" + ", ".join(strays[:3]),
-         "bash scripts/adopt-docs.sh   # 先看计划，再 --apply")
+         "bash ${TOOLNAME}/adopt-docs.sh   # 先看计划，再 --apply")
 
 
 def dump(title, items, mark):
@@ -239,7 +245,7 @@ def dump(title, items, mark):
 
 print(f"📐 check-docs-structure — 项目文档体系结构规范（{root.name}）")
 print(f"   知识布局：{layout}" + (f"（端：{', '.join(d.name for d in end_dirs)}）" if end_dirs else ""))
-print(f"   目录 {sum(1 for _ in root.glob('docs/**/*'))} 项 · 脚本 {len(list((root/'scripts').glob('*')))} 个" if (root / "scripts").is_dir() else "")
+print(f"   目录 {sum(1 for _ in root.glob('docs/**/*'))} 项 · 脚本 {len(list(pathlib.Path(os.environ["TOOL"]).glob("*")))} 个" if pathlib.Path(os.environ["TOOL"]).is_dir() else "")
 dump("错误", E, "❌")
 dump("告警", W, "⚠️ ")
 dump("建议", I, "💡")

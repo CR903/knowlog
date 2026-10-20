@@ -70,10 +70,10 @@ function logHost(line, { always = false } = {}) {
 }
 
 /** 调项目内的召回核心（唯一实现）；任何失败都返回空串。 */
-function recall(root, core, query, maxChars) {
+function recall(root, corePath, query, maxChars) {
   try {
     if (!query || !query.trim()) return "";
-    return execFileSync("python3", [join(root, core), "--query", query.slice(0, maxChars)], {
+    return execFileSync("python3", [corePath, "--query", query.slice(0, maxChars)], {
       cwd: root, timeout: 3000, maxBuffer: 1 << 20,
     }).toString().trim().slice(0, maxChars);
   } catch {
@@ -129,7 +129,8 @@ function alreadyInjected(messages) {
 }
 
 export function apply(ctx, config = {}) {
-  const core = config.core ?? "scripts/recall-core.py";
+  // 召回核心路径：新项目在 .knowlog/，旧项目在 scripts/（显式 config.core 优先）
+  const coreCandidates = config.core ? [config.core] : [".knowlog/recall-core.py", "scripts/recall-core.py"];
   const maxChars = Number.isFinite(config.maxChars) ? config.maxChars : DEFAULT_MAX_CHARS;
   const minQueryChars = Number.isFinite(config.minQueryChars) ? config.minQueryChars : DEFAULT_MIN_QUERY_CHARS;
   const configuredRoot = typeof config.root === "string" ? config.root.trim() : "";
@@ -178,15 +179,16 @@ export function apply(ctx, config = {}) {
       if (query.replace(/\s+/g, "").length < minQueryChars) return decision;
 
       root = await projectRoot(agent, signal);
-      if (!existsSync(join(root, core))) {
+      const corePath = coreCandidates.map((c) => join(root, c)).find((p) => existsSync(p));
+      if (!corePath) {
         if (!warned.has(root)) {
           warned.add(root);
-          log(root, `会话目录里没有召回核心 ${core}（root=${root}）→ 本轮起静默；命令行兜底 knowledge-retrieve.sh`);
+          log(root, `会话目录里没有召回核心（找过 ${coreCandidates.join(" / ")}，root=${root}）→ 本轮起静默；命令行兑底 knowledge-retrieve.sh`);
         }
         return decision;
       }
 
-      const hint = recall(root, core, query, maxChars);
+      const hint = recall(root, corePath, query, maxChars);
       if (!hint) return decision;
       if (lastHint.get(agent) === hint) {
         log(root, `turn ${turn}: 命中与上轮相同，跳过重复注入`);
@@ -217,7 +219,7 @@ export function apply(ctx, config = {}) {
     }, "docs-recall: dispose pre-step listener");
   }
 
-  logHost(`plugin loaded（core=${core} maxChars=${maxChars}；会话目录按每轮解析）`, { always: true });
+  logHost(`plugin loaded（core=${coreCandidates.join(" / ")} maxChars=${maxChars}；会话目录按每轮解析）`, { always: true });
 }
 
 export default apply;

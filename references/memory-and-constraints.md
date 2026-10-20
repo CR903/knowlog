@@ -50,7 +50,7 @@
 所以门禁的形态必须是**退出码**：
 
 ```bash
-bash scripts/check-daily-index.sh --strict   # 缺索引行 / 死链 / 路径不符 / 重复索引 → 非零
+bash .knowlog/check-daily-index.sh --strict   # 缺索引行 / 死链 / 路径不符 / 重复索引 → 非零
 ```
 
 它可以被挂在任何地方（pre-commit、CI、agent 的收尾清单），而 agent 的收尾清单本身也写进了 `AGENTS.md` 托管块

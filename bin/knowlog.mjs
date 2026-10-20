@@ -86,7 +86,7 @@ ${C.b}其它${C.x}
   knowlog package [--out DIR]                             打包 .skill（离线分发用）
   knowlog version | help
 
-${C.dim}提示：init 之后，项目内就有全套脚本（scripts/），日常用项目自己的那份即可（bash scripts/new-daily-log.sh <slug>），不必每次走 CLI。${C.x}
+${C.dim}提示：init 之后，项目内就有全套脚本（.knowlog/），日常用项目自己的那份即可（bash .knowlog/new-daily-log.sh <slug>），不必每次走 CLI。${C.x}
 `;
 
 function main() {

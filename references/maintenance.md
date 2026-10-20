@@ -6,7 +6,7 @@
 
 ```bash
 # 建目录 + 骨架（幂等，不会动已有文件）
-bash scripts/bootstrap-docs.sh --ends "backend frontend mobile app" --project-name "<项目名>"
+bash .knowlog/bootstrap-docs.sh --ends "backend frontend mobile app" --project-name "<项目名>"
 ```
 
 `bootstrap-docs.sh` 会自动为每个端建 `README.md` / `index.md` / 四个分类目录，并把根索引的端表格与 section 补齐。
@@ -28,24 +28,24 @@ bash scripts/bootstrap-docs.sh --ends "backend frontend mobile app" --project-na
 
 ```bash
 # 单面 → 多端（例如后来加了前端/移动端）
-bash scripts/bootstrap-docs.sh --knowledge-layout by-end --ends "backend frontend"
+bash .knowlog/bootstrap-docs.sh --knowledge-layout by-end --ends "backend frontend"
 # 多端 → 单面（知识其实通用，分层反而让人犹豫）
-bash scripts/bootstrap-docs.sh --knowledge-layout flat
+bash .knowlog/bootstrap-docs.sh --knowledge-layout flat
 ```
 
 两个**不会自动做**的事，切换后要手工收口：
 
 1. **老文档不会自动搬家**：by-end 后旧文档（在分类目录下）不会自动进 `<端>/<分类>/`。
    做法：`git mv docs/knowledge/<分类>/x.md docs/knowledge/<端>/<分类>/x.md`，再用
-   `bash scripts/new-knowledge.sh <端> <分类> <name> "<说明>"` 重新登记（或手工改索引两处）。
-2. **索引会多出/残留 section**：切换后跑 `bash scripts/check-knowledge-index.sh --strict --fix-hint`，
+   `bash .knowlog/new-knowledge.sh <端> <分类> <name> "<说明>"` 重新登记（或手工改索引两处）。
+2. **索引会多出/残留 section**：切换后跑 `bash .knowlog/check-knowledge-index.sh --strict --fix-hint`，
    按提示把行搬到正确 section；残留的空 section 手工删掉即可（脚本不猜你的意图，不会自动删）。
 
 ## 2.6 让召回覆盖到各 agent
 
 ```bash
-bash scripts/install-recall.sh --list        # 检测本机 agent
-bash scripts/install-recall.sh --agent auto --verify
+bash .knowlog/install-recall.sh --list        # 检测本机 agent
+bash .knowlog/install-recall.sh --agent auto --verify
 ```
 
 - **Claude Code**：钩子装好即生效（实测：`claude -p` 能让模型复述注入内容）
@@ -56,11 +56,11 @@ bash scripts/install-recall.sh --agent auto --verify
 - **OpenCode v2**：用项目 `opencode.json` 的 `instructions`（实测生效），不是插件钩子
 - **OpenCode v1**：才支持 `.opencode/plugins/*.ts` 的 `chat.message` 每轮注入（`DOCS_RECALL_OPENCODE_V1_PLUGIN=1`）
 - **DSH**：patch 层（`insert: [{id, name}]`）已验证格式；桥接包的钩子注册要按其 API 补一行
-- **其它 agent**：`AGENTS.md` 托管块 + `bash scripts/knowledge-retrieve.sh "<prompt>"`（与有钩子的同源）
+- **其它 agent**：`AGENTS.md` 托管块 + `bash .knowlog/knowledge-retrieve.sh "<prompt>"`（与有钩子的同源）
 
 ## 3. 迁移历史日志（从"平铺 + 按日流水"到新规范）
 
-> 先试 `bash scripts/adopt-docs.sh`（默认 dry-run）——能扫出来就别手工干；下面是它覆盖不到时的手工流程。
+> 先试 `bash .knowlog/adopt-docs.sh`（默认 dry-run）——能扫出来就别手工干；下面是它覆盖不到时的手工流程。
 
 ```bash
 cp docs/index.md /tmp/index.bak                 # ① 永远先备份索引
@@ -74,13 +74,13 @@ p = pathlib.Path("docs/index.md"); s = p.read_text(encoding="utf-8")
 p.write_text(re.sub(r"\]\(daily/(\d{4}-\d{2})-", r"](daily/\1/\1-", s), encoding="utf-8")
 PY
 # ④ 验证：文件集合 == 索引集合（无差集才算成功）
-bash scripts/check-daily-index.sh --strict --fix-hint
+bash .knowlog/check-daily-index.sh --strict --fix-hint
 ```
 
 历史上从没有登记过索引的月份（早期流水日志），先用 `LEGACY_MONTHS` 降级为告警，再逐月回填：
 
 ```bash
-LEGACY_MONTHS="2026-04 2026-05" bash scripts/check-daily-index.sh
+LEGACY_MONTHS="2026-04 2026-05" bash .knowlog/check-daily-index.sh
 ```
 
 回填时建议派子代理读旧日志出"日期 + 一句话摘要"（不要自己读几十篇，会吃掉上下文），
@@ -93,8 +93,8 @@ LEGACY_MONTHS="2026-04 2026-05" bash scripts/check-daily-index.sh
 #!/bin/bash
 set -e
 if [ -d docs/daily ]; then
-  bash scripts/check-daily-index.sh --strict || {
-    echo "❌ 日志索引不一致；跑 bash scripts/check-daily-index.sh --fix-hint 看修法"; exit 1; }
+  bash .knowlog/check-daily-index.sh --strict || {
+    echo "❌ 日志索引不一致；跑 bash .knowlog/check-daily-index.sh --fix-hint 看修法"; exit 1; }
 fi
 ```
 
@@ -103,18 +103,18 @@ fi
 ## 5. 装/卸召回钩子
 
 ```bash
-bash scripts/bootstrap-docs.sh --with-hook        # 复制钩子 + 注册 UserPromptSubmit（幂等，已注册则跳过）
+bash .knowlog/bootstrap-docs.sh --with-hook        # 复制钩子 + 注册 UserPromptSubmit（幂等，已注册则跳过）
 ```
 
 - 手动配置等价于在 `.claude/settings.json` 的 `hooks.UserPromptSubmit` 里加：
   `{"hooks":[{"type":"command","command":"python3 .claude/hooks/inject-knowledge.py","timeout":10}]}`
 - 临时关闭：`SKIP_KNOWLEDGE_HOOK=1`
-- **没有钩子机制的 agent**：不需要任何安装，直接 `bash scripts/knowledge-retrieve.sh "<prompt>"` 即可（效果等价）
+- **没有钩子机制的 agent**：不需要任何安装，直接 `bash .knowlog/knowledge-retrieve.sh "<prompt>"` 即可（效果等价）
 
 ## 6. monorepo / 多仓
 
 - 单仓多包（子目录各自独立 git）：`bootstrap-docs.sh` 的端探测会看一层子目录；也可显式 `--ends "svc-a svc-b"`
-- 多仓（各自独立仓库）：**每个仓各建一套**，但共用同一套脚本（把 `scripts/` 拷过去即可）
+- 多仓（各自独立仓库）：**每个仓各建一套**，但共用同一套脚本（把 `.knowlog/` 拷过去即可）
 - 若想跨仓共享知识：在其中一个仓放权威知识库，其他仓用 `knowledge-retrieve.sh --root <权威仓>` 召回，**不要**复制文件
 
 ## 7. 非 git 项目
@@ -125,7 +125,7 @@ bash scripts/bootstrap-docs.sh --with-hook        # 复制钩子 + 注册 UserPr
 ## 8. 排查"门禁红灯但不知道从哪下手"
 
 ```bash
-bash scripts/check-daily-index.sh --fix-hint
+bash .knowlog/check-daily-index.sh --fix-hint
 ```
 
 | 报告 | 修复 |

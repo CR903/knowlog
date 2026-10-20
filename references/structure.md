@@ -5,7 +5,7 @@
 ├── AGENTS.md                      # ★ 约束入口：托管块声明"日志/知识/领域"的规则（各大 agent 都读它）
 ├── .claude/hooks/inject-knowledge.py   # 可选：Claude Code 的关键词召回钩子
 ├── .claude/settings.json          # 可选：注册 UserPromptSubmit → inject-knowledge.py
-├── scripts/
+├── .knowlog/
 │   ├── bootstrap-docs.sh          # 搭/补建体系（幂等；两种布局；复制 assets 使其自包含）
 │   ├── adopt-docs.sh              # 采纳既有异构文档（默认 dry-run）
 │   ├── install-recall.sh          # 把召回装到各 agent（钩子/插件/规则文件）
@@ -63,7 +63,7 @@
 | 时序记忆 | `docs/daily/<YYYY-MM>/` | 哪个任务在何时做了什么、为什么、怎么验证的 | 只追加，不修改历史（除非发现记录有错） | 按 `docs/index.md` 定位，或 grep |
 | 结构化记忆 | `docs/knowledge/<端>/<分类>/` | 可复用结论：坑位、约定、最佳实践 | **活文档**：过期就改，不新旧并存 | 先查索引，再关键词召回 |
 | 领域记忆 | `docs/domain context/` | 业务长期规则：术语、状态机、公式、数据流 | 业务变了就改 | 靠 `AGENTS.md` 路由表**全量**读 |
-| 约束 | `AGENTS.md` 托管块 + `scripts/*.sh` | 「必须做什么」和「做错即红灯」 | 随体系演进 | 每轮自动进入上下文（AGENTS.md） |
+| 约束 | `AGENTS.md` 托管块 + `.knowlog/*.sh` | 「必须做什么」和「做错即红灯」 | 随体系演进 | 每轮自动进入上下文（AGENTS.md） |
 
 **边界判断**（常被问）：
 

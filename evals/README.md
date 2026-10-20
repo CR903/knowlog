@@ -84,8 +84,8 @@ MODEL=<模型名> bash evals/run_iteration4_pilot.sh "${TMPDIR:-/tmp}/knowlog-it
   或直接 `ls -d ~/.claude/skills/*.hidden-*` 看有没有残留。
 - **串行跑**：基线要动全局 skill，所以 with/without 不能并行。
 - **`setup_iteration4.sh` 默认幂等**（保留已有结果）；补跑新用例直接跑 pilot 即可，不会清掉旧评分。需要重建时用 `--force` / `--only <id>`。
-- **断言只盯"能力有没有"，别盯"用了哪套 CLI 契约"**（扩评踩到）：eval-12 的基线自建了等价的 `scripts/knowledge-retrieve.sh`（实测能命中），
-  若断言只认本 skill 的 `--root` 调用形式就会把它误判成"没有召回"。召回的判据同时接受任务里给用户的原话形式（在项目目录里跑 `bash scripts/knowledge-retrieve.sh "<probe>"`）。
+- **断言只盯"能力有没有"，别盯"用了哪套 CLI 契约"**（扩评踩到）：eval-12 的基线自建了等价的 `.knowlog/knowledge-retrieve.sh`（实测能命中），
+  若断言只认本 skill 的 `--root` 调用形式就会把它误判成"没有召回"。召回的判据同时接受任务里给用户的原话形式（在项目目录里跑 `bash .knowlog/knowledge-retrieve.sh "<probe>"`）。
 - **夹具自带体系 = 基线也会用**（eval-9 / eval-11）：这类用例必然打平或接近打平，属**能力边界**而非缺陷；
   写这种用例要在 `evals-v4.json` 的 `design_notes` 备案，并在 `measures` 里写明"测的是修复/收尾能力，不是搭建能力"。
 - **模型会变**：换模型（或换了 agent harness）必须重跑，数字只在同一配置下可比。
