@@ -84,7 +84,9 @@ def dead_links() -> list[str]:
 
 
 def gate(script: str) -> tuple[int, str]:
-    sh = PROJ / "scripts" / script
+    sh = PROJ / ".knowlog" / script
+    if not sh.exists():
+        sh = PROJ / "scripts" / script          # 兼容 0.4.0 之前的项目布局
     if not sh.exists():
         return 127, f".knowlog/{script} 不存在"
     p = subprocess.run(["bash", str(sh), "--strict", "--root", str(PROJ)],
@@ -298,6 +300,28 @@ elif EVAL == "eval-9":
     check("把可复用结论沉淀成知识并登记进索引",
           bool(new_knowledge) and any(knowledge_index_mentions(pathlib.Path(f).stem) for f in new_knowledge),
           f"新增知识: {new_knowledge}")
+
+elif EVAL == "eval-13":
+    # 收尾：知识必须"可被召回"（不是写完就算）
+    new = new_files()
+    new_logs = [f for f in new if f.startswith("docs/daily/")]
+    check("新增了一篇日志", bool(new_logs), f"新增: {new[:8]}")
+    check("日志落在月份目录", any(re.match(r"docs/daily/\d{4}-\d{2}/", f) for f in new_logs),
+          f"新增日志: {new_logs}")
+    new_knowledge = [f for f in new if f.startswith("docs/knowledge/") and f.endswith(".md")]
+    check("沉淀了可复用知识（新增知识文档）", bool(new_knowledge), f"新增知识: {new_knowledge}")
+    check("知识已登记进索引",
+          bool(new_knowledge) and any(knowledge_index_mentions(pathlib.Path(f).stem) for f in new_knowledge),
+          f"登记={[pathlib.Path(f).stem for f in new_knowledge]}")
+    rules = keyword_rules()
+    check("召回表里出现了真实规则", bool(rules), f"规则 {len(rules)} 条: {list(rules)[:3]}")
+    hit, docs_ok, ev = recall_check(["consumeRate", "packaging", "instoreCount"])
+    check("用代码标识符召回能命中", hit, ev)
+    check("命中的文档真实可达", hit and docs_ok, ev)
+    rc, out = gate("check-knowledge-index.sh")
+    check("知识门禁通过", rc == 0, f"rc={rc} {out}")
+    rc2, out2 = gate("check-docs-structure.sh")
+    check("结构门禁通过", rc2 == 0, f"rc={rc2} {out2}")
 
 elif EVAL == "eval-10":
     # 跨月补写：任务日期早于当前月 → 按任务日期归月 + 索引行落对表格 + 占位填实

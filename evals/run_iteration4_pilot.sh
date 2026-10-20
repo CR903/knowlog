@@ -31,7 +31,8 @@ echo "▶ 造/校验运行目录…"
 bash "$SKILL_DIR/evals/setup_iteration4.sh" "$WS" > /dev/null || exit 1
 
 for cs in eval-7-fresh-project-no-docs eval-8-messy-legacy-docs-adopt eval-9-closeout-after-real-task \
-          eval-10-cross-month-backfill eval-11-index-drift-repair eval-12-single-end-flat-recall; do
+          eval-10-cross-month-backfill eval-11-index-drift-repair eval-12-single-end-flat-recall \
+          eval-13-closeout-sediment-must-be-recallable; do
   eid="$(printf %s "$cs" | cut -d- -f1-2)"   # eval-7 / eval-8 / eval-9（别用 ${cs%%-*}：会截成 eval）
   for cfg in with_skill without_skill; do
     RUN="$IT/$cs/$cfg"

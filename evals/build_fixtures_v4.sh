@@ -289,5 +289,29 @@ cat > notes/导出列顺序.md <<'EOF'
 EOF
 git init -q . 2>/dev/null || true
 
+# ---------- 用例 G（eval-13）：收尾时"知识必须可被召回" ----------
+mkproj v4-closeout-recall demo-closeout-recall
+bash "$SKILL_DIR/scripts/bootstrap-docs.sh" --root "$FX/v4-closeout-recall" --project-name demo-closeout-recall > /dev/null 2>&1
+# 预置一篇旧日志：让"召回表为空但项目非空壳"这个状态更真实（规则要由本次沉淀产生）
+mkdir -p docs/daily/2026-10
+cat > docs/daily/2026-10/2026-10-18_unit-rounding.md <<'EOF'
+# 2026-10-18_unit-rounding 计量单位取整
+
+## 做了什么
+出库量统一按 `packaging` 换算后取两位小数。
+
+## 判据
+手工核对 10 瓶/箱 的物品，出库量正确。
+EOF
+cat > TASK.md <<'EOF'
+# 本次刚做完的改动
+
+- 修了 `internal/order/unit.go` 的 `CalcConsume`：之前只乘 `consumeRate`、漏乘 `packaging`，
+  导致「10 瓶/箱」的物品出库量被算成 1/10。现在 = `instoreCount × packaging × consumeRate`。
+- 已补单测 `unit_test.go`（3 个用例，含 `packaging=10` 的回归）。
+- 遗留：`transfer.go` 里的同类调用点还没查。
+EOF
+git init -q . 2>/dev/null || true
+
 echo "✅ iteration-4 夹具已生成：$FX"
 ls -1 "$FX" | sed 's/^/   /'

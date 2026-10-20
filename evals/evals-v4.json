@@ -59,6 +59,14 @@
       "measures": "单面项目的知识库布局（应为 flat、不造端层）+ 关键词召回是真能用的（`knowledge-retrieve.sh` 用标识符能命中并指向已存在文档）",
       "prompt": "这是我们内部的一个 CLI 工具 `csvtool`，**只有一个面**（只有 Go，没有前后端之分）。帮我建一套开发文档体系；顺便把「导出 CSV 列顺序会变」这个反复踩的坑沉淀成可复用的知识，并加一条关键词召回 —— 以后我写导出相关代码时，跑 `bash .knowlog/knowledge-retrieve.sh \"...\"` 就能被提示去看这条知识（关键词请用代码里的标识符 `csvColumns`，别用自然语言标题）。做完告诉我知识放在哪、怎么召回。",
       "expected_output": "知识库落 flat 布局（docs/knowledge/{architecture,guides,troubleshooting,best-practices}/ 直接挂在根下，无端层）；沉淀一篇「CSV 列顺序」知识文档并登记进 docs/knowledge/index.md；`.keyword-map.json` 增加至少一条真实召回规则（正则含 csvColumns）；`bash .knowlog/knowledge-retrieve.sh \"csvColumns ...\"` 能命中且指向已存在文档；知识门禁与结构门禁均通过。"
+    },
+    {
+      "id": "eval-13",
+      "name": "closeout-sediment-must-be-recallable",
+      "fixture": "v4-closeout-recall",
+      "measures": "收尾时能否把「可复用结论」沉淀成**可被召回**的知识：知识文档 + 索引 + 真实召回规则（用代码标识符），且命令行召回真的命中",
+      "prompt": "我刚做完一个修复（见仓库根目录 `TASK.md`）。按这个项目的文档规范做收尾：① 记日志；② 把这次的可复用结论沉淀成知识；③ 让它**以后能被自动提醒** —— 用代码里的标识符做触发词，我下次改这块代码时要能被召回。做完告诉我：知识放在哪、用什么命令能验证召回。",
+      "expected_output": "新增日志（月份目录）；新增知识文档并登记进索引；`docs/knowledge/.keyword-map.json` 出现至少一条真实规则且正则能命中 `consumeRate`/`packaging`；`bash .knowlog/knowledge-retrieve.sh \"consumeRate\"` 能命中且指向已存在文档；知识门禁与结构门禁通过。"
     }
   ]
 }

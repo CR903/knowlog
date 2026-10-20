@@ -49,6 +49,7 @@ python3 evals/grade_v4.py eval-8 "$D/without_skill" "$D/without_skill/grading.js
 | eval-10 | `v4-backfill` | 跨月补写：按**任务日期**（而非今天）归月 + 索引行占位填实 |
 | eval-11 | `v4-drift` | 索引漂移修复（用**项目自带门禁**定位并修好；**自带体系，已备案**，测"修"不测"搭"） |
 | eval-12 | `v4-flat` | 单面项目 flat 布局（不造端层）+ 关键词召回**真能命中** |
+| eval-13 | `v4-closeout-recall` | 收尾产出的知识**可被召回**：沉淀即挂规则，命令行用标识符真能命中 |
 
 ## 换模型做对照（结论会对模型敏感）
 
