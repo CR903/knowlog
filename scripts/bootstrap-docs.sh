@@ -471,7 +471,8 @@ if not dry:
             # 适配器同样是 knowlog 资产（桥接/钩子本体）：内容不同就更新，否则旧项目会继续用旧桥接
             n = 0
             for f in sorted(extra_src.rglob("*")):
-                if f.is_dir() or f.name.startswith("._") or f.name == ".DS_Store":
+                if f.is_dir() or f.name.startswith("._") or f.name == ".DS_Store" \
+                        or "__pycache__" in f.parts or f.suffix == ".pyc":
                     continue
                 t = extra_dst / f.relative_to(extra_src)
                 if not t.exists() or t.read_bytes() != f.read_bytes():
