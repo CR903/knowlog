@@ -22,13 +22,21 @@ KNOWLOG_HOME="${KNOWLOG_HOME:-${DOCS_SYSTEM_HOME:-}}"
 ROOT=""; ENDS=""; PROJECT_NAME=""; LAYOUT="auto"; WITH_RECALL=0; DRY=0; FORCE_SCRIPTS=0
 while [ $# -gt 0 ]; do
   case "$1" in
-    --root) ROOT="${2:-}"; shift 2 ;;
+    --root)
+      [ $# -ge 2 ] || { echo "❌ --root 需要值（例：--root <值>）" >&2; exit 2; }
+      ROOT="$2"; shift 2 ;;
     --root=*) ROOT="${1#--root=}"; shift ;;
-    --ends) ENDS="${2:-}"; shift 2 ;;
+    --ends)
+      [ $# -ge 2 ] || { echo "❌ --ends 需要值（例：--ends <值>）" >&2; exit 2; }
+      ENDS="$2"; shift 2 ;;
     --ends=*) ENDS="${1#--ends=}"; shift ;;
-    --project-name) PROJECT_NAME="${2:-}"; shift 2 ;;
+    --project-name)
+      [ $# -ge 2 ] || { echo "❌ --project-name 需要值（例：--project-name <值>）" >&2; exit 2; }
+      PROJECT_NAME="$2"; shift 2 ;;
     --project-name=*) PROJECT_NAME="${1#--project-name=}"; shift ;;
-    --knowledge-layout) LAYOUT="${2:-}"; shift 2 ;;
+    --knowledge-layout)
+      [ $# -ge 2 ] || { echo "❌ --knowledge-layout 需要值（例：--knowledge-layout <值>）" >&2; exit 2; }
+      LAYOUT="$2"; shift 2 ;;
     --knowledge-layout=*) LAYOUT="${1#--knowledge-layout=}"; shift ;;
     --with-hook|--with-recall) WITH_RECALL=1; shift ;;
     --force-scripts) FORCE_SCRIPTS=1; shift ;;        # 升级：用 skill 里的工具脚本覆盖项目内同名脚本
@@ -42,7 +50,14 @@ case "$LAYOUT" in auto|flat|by-end) ;; *) echo "❌ --knowledge-layout 只能是
 HERE="$(cd "$(dirname "$0")" && pwd)"
 if [ -z "$ROOT" ]; then
   ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-  [ -n "$ROOT" ] || ROOT="$(cd "$HERE/.." && pwd)"
+  [ -n "$ROOT" ] || {
+    _self="$(cd "$(dirname "$0")/.." && pwd)"
+    # 非 git 目录：区分「项目内副本」与「skill/包本体」
+    #   · skill/包本体（带 SKILL.md + assets/）→ 目标是**用户当前目录**
+    #     （否则会写进 skill 自己——0.3.3 真机事故：npx 运行时体系建到了 npx 缓存包里）
+    #   · 项目内副本 → 目标是项目根
+    if [ -f "$_self/SKILL.md" ] && [ -d "$_self/assets" ]; then ROOT="$PWD"; else ROOT="$_self"; fi
+  }
 fi
 [ -d "$ROOT" ] || { echo "❌ 目标目录不存在：$ROOT" >&2; exit 1; }
 

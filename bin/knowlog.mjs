@@ -97,9 +97,13 @@ function main() {
     console.log(HELP);
     return 0;
   }
-  const root = flags.root ? ["--root", flags.root] : [];
+  // root 永远显式传：脚本在「非 git 目录」里无法可靠推断目标
+  // （0.3.3 真机事故：npx knowlog init 把体系写进了 npx 缓存里的包目录）
+  const root = ["--root", resolve(flags.root || process.cwd())];
   const dry = flags["dry-run"] === "true";
-  const pass = (...k) => k.filter((x) => flags[x] !== undefined).map((x) => `--${x}`);
+  // 注意：带值的参数必须把值一起传下去（曾经只传 `--flag`，值被吞，脚本静默空跑）
+  const pass = (...k) => k.filter((x) => flags[x] !== undefined)
+    .flatMap((x) => (flags[x] === "true" ? [`--${x}`] : [`--${x}`, flags[x]]));
 
   switch (cmd) {
     case "help": case "--help": case "-h": console.log(HELP); return 0;

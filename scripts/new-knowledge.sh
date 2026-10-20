@@ -44,7 +44,14 @@ done
 
 if [ -z "$ROOT" ]; then
   ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-  [ -n "$ROOT" ] || ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+  [ -n "$ROOT" ] || {
+    _self="$(cd "$(dirname "$0")/.." && pwd)"
+    # 非 git 目录：区分「项目内副本」与「skill/包本体」
+    #   · skill/包本体（带 SKILL.md + assets/）→ 目标是**用户当前目录**
+    #     （否则会写进 skill 自己——0.3.3 真机事故：npx 运行时体系建到了 npx 缓存包里）
+    #   · 项目内副本 → 目标是项目根
+    if [ -f "$_self/SKILL.md" ] && [ -d "$_self/assets" ]; then ROOT="$PWD"; else ROOT="$_self"; fi
+  }
 fi
 
 [ -n "$CAT" ] && [ -n "$NAME" ] && [ -n "$DESC" ] || {

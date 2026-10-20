@@ -23,12 +23,23 @@ while [ $# -gt 0 ]; do
 done
 if [ -z "$ROOT" ]; then
   ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-  [ -n "$ROOT" ] || ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+  [ -n "$ROOT" ] || {
+    _self="$(cd "$(dirname "$0")/.." && pwd)"
+    # 非 git 目录：区分「项目内副本」与「skill/包本体」
+    #   · skill/包本体（带 SKILL.md + assets/）→ 目标是**用户当前目录**
+    #     （否则会写进 skill 自己——0.3.3 真机事故：npx 运行时体系建到了 npx 缓存包里）
+    #   · 项目内副本 → 目标是项目根
+    if [ -f "$_self/SKILL.md" ] && [ -d "$_self/assets" ]; then ROOT="$PWD"; else ROOT="$_self"; fi
+  }
 fi
 export ROOT STRICT FIX
 
 python3 - <<'PY'
 import os, pathlib, re, sys
+
+def junk(name: str) -> bool:
+    """macOS 在 exFAT/网络卷上会为每个文件生成 ._xxx 影子文件；系统垃圾也不算文档。"""
+    return name.startswith("._") or name in {".DS_Store"} or name.startswith(".Spotlight")
 
 root = pathlib.Path(os.environ["ROOT"]); KNOW = root / "docs" / "knowledge"
 strict = os.environ["STRICT"] == "1"; fix = os.environ["FIX"] == "1"
@@ -49,13 +60,14 @@ def docs_in(d: pathlib.Path) -> list[pathlib.Path]:
     out = []
     for c in CATS:
         if (d / c).is_dir():
-            out += [p for p in sorted((d / c).glob("*.md")) if p.name != "README.md"]
+            out += [p for p in sorted((d / c).glob("*.md"))
+                    if p.name != "README.md" and not junk(p.name)]
     return out
 
 
 # 布局判定：docs/knowledge/<X>/ 里出现 index.md 且 X 不是分类名 → by-end；否则 flat
 end_dirs = [d for d in sorted(KNOW.iterdir())
-            if d.is_dir() and d.name not in CATS and (d / "index.md").exists()]
+            if d.is_dir() and not junk(d.name) and d.name not in CATS and (d / "index.md").exists()]
 layout = "by-end" if end_dirs else "flat"
 root_index = KNOW / "index.md"
 root_links = [l.split("#")[0] for l in links_of(root_index)]

@@ -28,7 +28,14 @@ while [ $# -gt 0 ]; do
 done
 if [ -z "$ROOT" ]; then
   ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-  [ -n "$ROOT" ] || ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+  [ -n "$ROOT" ] || {
+    _self="$(cd "$(dirname "$0")/.." && pwd)"
+    # 非 git 目录：区分「项目内副本」与「skill/包本体」
+    #   · skill/包本体（带 SKILL.md + assets/）→ 目标是**用户当前目录**
+    #     （否则会写进 skill 自己——0.3.3 真机事故：npx 运行时体系建到了 npx 缓存包里）
+    #   · 项目内副本 → 目标是项目根
+    if [ -f "$_self/SKILL.md" ] && [ -d "$_self/assets" ]; then ROOT="$PWD"; else ROOT="$_self"; fi
+  }
 fi
 [ -d "$ROOT/docs" ] || echo "ℹ️  没有 docs/ 目录——本脚本用于"已有异构文档"的项目；全新项目请直接 bootstrap-docs.sh"
 export ROOT APPLY
@@ -36,6 +43,10 @@ export ROOT APPLY
 PLAN=$(python3 - <<'PY'
 """扫描 → 规划（不改动磁盘）；输出 JSON"""
 import json, os, pathlib, re, sys
+
+def junk(name: str) -> bool:
+    """macOS 在 exFAT/网络卷上会为每个文件生成 ._xxx 影子文件；系统垃圾也不算文档。"""
+    return name.startswith("._") or name in {".DS_Store"} or name.startswith(".Spotlight")
 
 root = pathlib.Path(os.environ["ROOT"])
 SKIP_DIRS = {".git", "node_modules", "vendor", "dist", "build", ".next", ".venv", "venv",
@@ -50,7 +61,7 @@ for dirpath, dirnames, filenames in os.walk(root):
     dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith(".git")]
     rel_dir = pathlib.Path(dirpath).relative_to(root).as_posix()
     for fn in filenames:
-        if not fn.endswith(".md"):
+        if not fn.endswith(".md") or fn.startswith("._") or fn == ".DS_Store":
             continue
         rel = f"{rel_dir}/{fn}" if rel_dir != "." else fn
         rel = rel.lstrip("./")
@@ -88,7 +99,7 @@ for item in sorted(found, key=lambda x: (x["date"], x["src"])):
 existing = []
 d = root / "docs" / "daily"
 if d.is_dir():
-    for p in sorted(d.rglob("*.md")):
+    for p in sorted(x for x in d.rglob("*.md") if not junk(x.name)):
         existing.append(f"daily/{p.parent.name}/{p.name}" if p.parent != d else f"daily/{p.name}")
 
 print(json.dumps({"found": targets, "existing_daily": existing,

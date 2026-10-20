@@ -32,7 +32,14 @@ done
 
 if [ -z "$ROOT" ]; then
   ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-  [ -n "$ROOT" ] || ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+  [ -n "$ROOT" ] || {
+    _self="$(cd "$(dirname "$0")/.." && pwd)"
+    # 非 git 目录：区分「项目内副本」与「skill/包本体」
+    #   · skill/包本体（带 SKILL.md + assets/）→ 目标是**用户当前目录**
+    #     （否则会写进 skill 自己——0.3.3 真机事故：npx 运行时体系建到了 npx 缓存包里）
+    #   · 项目内副本 → 目标是项目根
+    if [ -f "$_self/SKILL.md" ] && [ -d "$_self/assets" ]; then ROOT="$PWD"; else ROOT="$_self"; fi
+  }
 fi
 
 export ROOT STRICT FIX_HINT
@@ -40,6 +47,10 @@ export LEGACY_MONTHS="${LEGACY_MONTHS:-}"
 
 python3 - <<'PY'
 import os, re, sys, pathlib
+
+def junk(name: str) -> bool:
+    """macOS 在 exFAT/网络卷上会为每个文件生成 ._xxx 影子文件；系统垃圾也不算文档。"""
+    return name.startswith("._") or name in {".DS_Store"} or name.startswith(".Spotlight")
 
 root = pathlib.Path(os.environ["ROOT"])
 daily = root / "docs" / "daily"
@@ -61,11 +72,11 @@ files = {}
 for month_dir in sorted(p for p in daily.iterdir() if p.is_dir()):
     md = MONTH_DIR_RE.match(month_dir.name)
     if not md:
-        for f in sorted(month_dir.glob("*.md")):
+        for f in sorted(p for p in month_dir.glob("*.md") if not junk(p.name)):
             errors.append((f"daily/{month_dir.name}/{f.name}", "目录名不合规范（应为 YYYY-MM）"))
         continue
     dir_month = month_dir.name
-    for f in sorted(month_dir.glob("*.md")):
+    for f in sorted(p for p in month_dir.glob("*.md") if not junk(p.name)):
         rel = f"daily/{dir_month}/{f.name}"
         m = FILE_RE.match(f.name)
         if not m:
@@ -78,7 +89,7 @@ for month_dir in sorted(p for p in daily.iterdir() if p.is_dir()):
             errors.append((rel, f"目录月({dir_month}) ≠ 文件名月({file_month})：跨月补写按日志日期归月"))
             hints.append(f"mkdir -p docs/daily/{file_month} && git mv docs/{rel} docs/daily/{file_month}/{f.name}"
                          f"   # 再改 docs/index.md 的链接与所在表格")
-for f in sorted(daily.glob("*.md")):
+for f in sorted(p for p in daily.glob("*.md") if not junk(p.name)):
     rel = f"daily/{f.name}"
     errors.append((rel, "日志散落在 daily/ 根：必须放进 daily/<YYYY-MM>/"))
     m = FILE_RE.match(f.name)

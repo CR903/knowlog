@@ -250,6 +250,36 @@ rm -f scripts/new-daily-log.sh
 bash scripts/docs-doctor.sh > "$SB/doctor-out.txt" 2>&1 || true
 chk "体检失败时提示记一笔（附可跑命令）" 'grep -q "new-daily-log.sh fix-doc-drift" "$SB/doctor-out.txt"'
 
+hdr "T11 非 git 目录：从 skill/包跑 init 必须写到当前目录（0.3.3 真机事故回归）"
+NG="$SB/t11-nongit"; rm -rf "$NG"; mkdir -p "$NG"; cd "$NG"
+bash "$SKILL/scripts/bootstrap-docs.sh" --project-name "非git项目" > "$SB/nongit-out.txt" 2>&1
+chk "非 git：docs 建在当前目录" '[ -f "$NG/docs/index.md" ] && [ -d "$NG/docs/daily" ]'
+chk "非 git：skill/包自身没被写入 docs" '[ ! -e "$SKILL/docs" ]'
+chk "非 git：scripts 也落在当前目录" '[ -f "$NG/scripts/docs-doctor.sh" ]'
+cd "$SB"
+
+hdr "T12 exFAT/网络卷：._ 影子文件不干扰门禁（macOS AppleDouble）"
+P="$SB/t12-shadow"; mkproj "$P"
+bash "$SKILL/scripts/bootstrap-docs.sh" --root "$P" --project-name "影子文件" >/dev/null 2>&1
+cd "$P"
+: > docs/knowledge/troubleshooting/._ghost.md
+: > docs/daily/._heritage.md
+: > docs/._index.md
+chk "知识门禁忽略 ._ghost.md" 'bash scripts/check-knowledge-index.sh --strict >/dev/null'
+chk "日志门禁忽略 ._heritage.md" 'bash scripts/check-daily-index.sh --strict >/dev/null'
+chk "体检整体仍绿（影子文件不影响）" 'bash scripts/docs-doctor.sh --strict >/dev/null'
+
+hdr "T13 CLI 参数透传（带值参数不能被吞成开关）"
+if command -v node >/dev/null 2>&1 && [ -f "$SKILL/bin/knowlog.mjs" ]; then
+  C="$SB/t13-cli"; rm -rf "$C"; mkdir -p "$C"
+  ( cd "$C" && node "$SKILL/bin/knowlog.mjs" init --project-name "CLI项目" >/dev/null 2>&1 )
+  chk "CLI init 带 --project-name 真的建了体系" '[ -f "$C/docs/index.md" ]'
+  chk "CLI 把项目名写进 docs/README.md（值没被吞）" 'grep -q "CLI项目" "$C/docs/README.md"'
+else
+  ok "跳过 CLI 测试（本机无 node）"
+fi
+cd "$SB"
+
 hdr 'T10 脚本卫生：变量名紧跟中文（set -u 下当场 unbound）'
 BADVAR=$(python3 - "$SKILL" <<'PYX'
 import pathlib, re, sys
