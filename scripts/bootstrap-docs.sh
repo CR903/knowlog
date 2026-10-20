@@ -159,10 +159,12 @@ def backup_block(rel: str, old_block_text: str):
     """刷新托管块前，把旧块内容留一份备份 —— 块被视为工具所有，但绝不静默覆盖掉人写的东西。"""
     if dry:
         return
-    bak = root / (rel + ".block.bak")
+    # 备份放进 .knowlog/（knowlog 自己的隐藏目录），别在项目根留 .bak 干扰 git status
+    bak = root / TOOL / (rel.replace("/", "_") + ".block.bak")
     try:
+        bak.parent.mkdir(parents=True, exist_ok=True)
         bak.write_text(old_block_text, encoding="utf-8")
-        notes.append(f"旧托管块已备份到 {rel}.block.bak（若你在块内写过内容，去那里找）")
+        notes.append(f"旧托管块已备份到 {TOOL}/{bak.name}（若你在块内写过内容，去那里找）")
     except Exception:
         pass
 
