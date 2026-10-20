@@ -1,0 +1,9 @@
+# 本机字节码 / 缓存（不该进包）
+__pycache__/
+*.pyc
+.pytest_cache/
+# macOS
+.DS_Store
+._*
+# 会话/评测产物
+evals/iteration-*/
