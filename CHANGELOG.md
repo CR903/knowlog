@@ -2,6 +2,21 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## 0.3.6 — 2026-10-20
+
+**召回不再「永远空转」：日志 → 沉淀 → 规则，全链路自动**
+
+- 📝 **沉淀即挂召回规则**：`new-knowledge.sh` 从「来源日志（`--source`）里的代码标识符」自动提取，
+  保守策略（只认 camelCase / snake_case / kebab-case，最多 3 条，排除路径与常用命令词）——不拿自然语言标题猜。
+  `--keywords "a,b"` 显式指定（agent 更清楚写码时会出现哪个标识符）；`--no-keyword` 表示**明确不需要召回**，
+  记入 `_exempt`，门禁不会因此变红。
+- 🚦 **门禁拦住空转**：有知识文档但 0 条真实召回规则 → `check-docs-structure.sh --strict` **失败**
+  （以前只是一条 info：项目可以永远空表、永远全绿、召回永远没意义）。
+- 🧰 **存量补齐**：`reindex-knowledge.sh` 新增「召回复盘」，列出没有规则的知识文档与候选标识符；`--apply` 写盘。
+- 🔧 **路径归一化**：`new-keyword.sh` 自动把 `knowledge/...` 补成 `docs/knowledge/...`，避免召回输出 `(not found)`。
+- 📄 **收尾两问**：`new-daily-log.sh` 与 AGENTS 托管块明确"有可复用结论才沉淀，沉淀即挂规则"。
+- 🧪 自测 **112 项**（新增 4 条覆盖整条链路：自动挂规则 / 召回命中可达 / 空转门禁 / 豁免）。
+
 ## 0.3.5 — 2026-10-20
 
 - 🐛 **exFAT / 网络卷上 `install-skill --agent auto` 会在 dsh 步骤崩掉**（`UnicodeDecodeError: 0xb0`）：

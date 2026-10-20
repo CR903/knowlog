@@ -289,6 +289,30 @@ else
 fi
 cd "$SB"
 
+hdr "T14 召回链路：日志 → 沉淀 → 自动挂规则（不许空转）"
+P="$SB/t14-recall"; mkproj "$P"
+bash "$SKILL/scripts/bootstrap-docs.sh" --root "$P" --project-name "召回链路" >/dev/null 2>&1
+cd "$P"
+bash scripts/new-daily-log.sh tenant-fix >/dev/null 2>&1
+LOG="$(ls docs/daily/*/*tenant-fix* 2>/dev/null | grep -v '/\._' | head -1)"
+printf '\n## 过程\n\n漏了 `tenantId` 过滤；另外 `consumeRate` 的并发写法要统一。\n' >> "$LOG"
+bash scripts/new-knowledge.sh --flat troubleshooting tenant-isolation \
+  "多租户查询必须带 tenantId，否则会串数据" --source "$LOG" > "$SB/t14-know.txt" 2>&1
+chk "沉淀时从来源日志自动挂规则（tenantId/consumeRate）" \
+  'grep -q "tenantId" docs/knowledge/.keyword-map.json && grep -q "consumeRate" docs/knowledge/.keyword-map.json'
+chk "召回命中且文档路径可达（不是 not found）" \
+  'out=$(bash scripts/knowledge-retrieve.sh "改一下 tenantId 过滤"); printf "%s" "$out" | grep -q "tenant-isolation.md" && ! printf "%s" "$out" | grep -q "not found"'
+
+P2="$SB/t14-no-rule"; mkproj "$P2"
+bash "$SKILL/scripts/bootstrap-docs.sh" --root "$P2" --project-name "无规则" >/dev/null 2>&1
+( cd "$P2" && bash scripts/new-knowledge.sh --flat guides process-only "纯流程说明，没有代码标识符" >/dev/null 2>&1 )
+chk "有知识但无规则 → 结构门禁失败（召回不许静默空转）" '! ( cd "$P2" && bash scripts/check-docs-structure.sh --strict >/dev/null 2>&1 )'
+
+P3="$SB/t14-exempt"; mkproj "$P3"
+bash "$SKILL/scripts/bootstrap-docs.sh" --root "$P3" --project-name "豁免" >/dev/null 2>&1
+( cd "$P3" && bash scripts/new-knowledge.sh --flat guides manual-only "纯流程手册（明确不需要召回）" --no-keyword >/dev/null 2>&1 )
+chk "--no-keyword 记豁免后，门禁不因这条变红" '( cd "$P3" && bash scripts/check-docs-structure.sh --strict >/dev/null 2>&1 )'
+
 hdr 'T10 脚本卫生：变量名紧跟中文（set -u 下当场 unbound）'
 BADVAR=$(python3 - "$SKILL" <<'PYX'
 import pathlib, re, sys

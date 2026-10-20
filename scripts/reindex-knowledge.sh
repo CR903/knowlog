@@ -158,3 +158,75 @@ if not apply and (added_end or added_root):
 if apply and (added_end or added_root):
     print("\n📝 补完记得记一笔（「我补了哪些索引、为什么之前漏了」值得留给未来）：bash scripts/new-daily-log.sh reindex-knowledge-index")
 PY
+
+# ---------- 召回规则补齐（同一套保守提取：camelCase / snake_case / kebab） ----------
+ROOT="$ROOT" APPLY="$APPLY" python3 - <<'PYX'
+import json, os, pathlib, re
+
+root = pathlib.Path(os.environ["ROOT"]); apply = os.environ["APPLY"] == "1"
+know = root / "docs/knowledge"
+mapp = know / ".keyword-map.json"
+if not mapp.exists():
+    raise SystemExit(0)
+try:
+    data = json.loads(mapp.read_text(encoding="utf-8") or "{}")
+except Exception:
+    raise SystemExit(0)
+
+real = {k: v for k, v in data.items() if isinstance(v, dict) and not k.startswith("_")}
+covered = {d for v in real.values() for d in v.get("docs", [])}
+exempt = set(data.get("_exempt", []) or [])
+docs = [p for p in sorted(know.rglob("*.md"))
+        if p.name not in {"README.md", "index.md"} and not p.name.startswith("._")
+        and p.relative_to(root).as_posix() not in exempt]
+
+BLOCK = {"bash", "json", "md", "sh", "python3", "true", "false", "hash", "path", "file",
+         "note", "todo", "git", "npm", "npx", "cd", "ls", "cat", "grep", "echo", "sudo",
+         "main", "head", "diff"}
+
+def candidates(text: str):
+    out, seen = [], set()
+    for c in re.findall(r"`([^`\n]{2,60})`", text):
+        c = c.strip(); low = c.lower()
+        if len(c) < 4 or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.\-]*", c):
+            continue
+        if low in BLOCK or low.endswith((".md", ".json", ".sh", ".js", ".ts", ".vue", ".py", ".go", ".mjs")):
+            continue
+        if not (any(ch.isupper() for ch in c[1:]) or "_" in c or "-" in c):
+            continue
+        if c not in seen:
+            seen.add(c); out.append(c)
+    return out[:3]
+
+missing = []
+for d in docs:
+    rel = d.relative_to(root).as_posix()
+    if rel in covered:
+        continue
+    text = d.read_text(encoding="utf-8", errors="replace")
+    pats = candidates(text)
+    title = next((l.lstrip("# ").strip() for l in text.splitlines() if l.startswith("# ")), rel)
+    missing.append((rel, pats, title))
+
+if missing:
+    print(f"\n🔎 召回复盘：{len(missing)} 篇知识文档还没有召回规则")
+    for rel, pats, _ in missing:
+        print(f"   - {rel}  → 候选标识符：{', '.join(pats) if pats else '（未找到，需手工 --keywords）'}")
+    if apply:
+        added = 0
+        for rel, pats, title in missing:
+            for pat in pats:
+                entry = data.get(pat)
+                if entry is None:
+                    data[pat] = {"docs": [rel], "hint": title}; added += 1
+                else:
+                    ds = entry.setdefault("docs", [])
+                    if rel not in ds:
+                        ds.append(rel); added += 1
+        mapp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"   ✅ 已补 {added} 条规则（--apply）")
+    else:
+        print("   执行：bash scripts/reindex-knowledge.sh --apply")
+else:
+    print("\n🔎 召回复盘：所有知识文档都已有召回规则")
+PYX

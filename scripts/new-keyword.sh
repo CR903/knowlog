@@ -66,6 +66,16 @@ try:
 except re.error as e:
     print(f"❌ 正则不合法：{e}", file=sys.stderr); sys.exit(1)
 
+def normalize(d):
+    """把「相对 docs/ 写」的路径归一化成「相对项目根」——避免召回里出现 (not found)。"""
+    if (root / d.split("#")[0]).exists():
+        return d
+    alt = "docs/" + d
+    if (root / alt.split("#")[0]).exists():
+        return alt
+    return d
+
+docs = [normalize(d) for d in docs]
 missing = [d for d in docs if not (root / d.split("#")[0]).exists()]
 if missing:
     print(f"⚠️  以下文档暂不存在（仍会写入，但召回时显示 not found）：{', '.join(missing)}")

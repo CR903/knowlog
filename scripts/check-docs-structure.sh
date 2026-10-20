@@ -154,9 +154,18 @@ else:
     try:
         d = json.loads(kmap.read_text(encoding="utf-8") or "{}")
         real = [k for k, v in d.items() if isinstance(v, dict) and not k.startswith("_")]
-        if not real:
-            info("docs/knowledge/.keyword-map.json", "还没有真实召回规则 → 装了钩子也不会命中",
-                 'bash scripts/new-keyword.sh "<正则，用标识符>" "<提示>" "<文档>"')
+        exempt = set(d.get("_exempt", []) or [])
+        kdocs = [p for p in KNOW.rglob("*.md")
+                 if p.name not in {"README.md", "index.md"} and not p.name.startswith("._")
+                 and p.relative_to(root).as_posix() not in exempt]
+        if not real and kdocs:
+            # 有知识却没有任何召回规则 → 召回永远空转：不报错、不失败，只是静默失去意义
+            warn("docs/knowledge/.keyword-map.json",
+                 f"有 {len(kdocs)} 篇知识文档但 0 条召回规则 → 召回永远空转",
+                 "沉淀时用 new-knowledge.sh（自动挂规则）；存量用 reindex-knowledge.sh --apply 补齐")
+        elif not real:
+            info("docs/knowledge/.keyword-map.json", "还没有知识文档/召回规则（尚无可用结论，属正常）",
+                 'bash scripts/new-knowledge.sh --flat <分类> <name> "<结论>" --source <日志>')
         for k in real:
             for doc in d[k].get("docs", []):
                 if not (root / doc.split("#")[0]).exists():

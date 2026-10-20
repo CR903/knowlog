@@ -79,6 +79,18 @@ bash scripts/new-knowledge.sh <端> <分类> <name> "<一句话说明>" --source
 bash scripts/check-daily-index.sh --strict           # 门禁：红灯不许收摊
 ```
 
+**沉淀会自动挂召回规则**（默认从「来源日志里的代码标识符」提取，最多 3 条）。
+你（agent）比脚本更清楚哪个标识符是"写码当下会出现的"，所以**优先显式传**：
+
+```bash
+bash scripts/new-knowledge.sh --flat troubleshooting tenant-isolation "多租户查询必须带 tenantId" \
+  --source docs/daily/2026-10/2026-10-20_xxx.md --keywords "tenantId,tenant_id"
+```
+
+- `--no-keyword`：明确这条知识不需要召回（纯流程/手册），会记入 `_exempt`，门禁不因此变红。
+- 一条规则都没有、却已有知识文档时，结构门禁**会红**（防止召回永远空转）。
+- 存量知识缺规则：`bash scripts/reindex-knowledge.sh --apply`（先不带 `--apply` 看候选）。
+
 填日志时注意：**不要复述 diff**。要写"为什么这么做""踩了什么坑""怎么证明它是对的"。
 判断是否沉淀知识的标准是**这条结论会不会被重复踩/被反复问**；一次性细节留在日志里就够。
 
@@ -163,8 +175,8 @@ bash scripts/install-recall.sh --agent auto    # 确认后再装（幂等）
 | `package-skill.sh [--out DIR]` | 打包分发单元 .skill | 纯 zip，不依赖任何第三方打包工具；默认 `~/.agents/skills/.packages/` |
 | `bin/knowlog.mjs`（零依赖 CLI） | 给人用的统一入口 | `npx knowlog init\|log(add)\|doctor\|knowledge\|adopt\|reindex\|install-skill\|package`；内部转发同一批脚本 |
 | `new-daily-log.sh <slug> [日期]` | 每次任务收尾 | 自动算月份目录、复制模板、**在 index.md 插入索引行骨架** |
-| `new-knowledge.sh <端> <分类> <name> "<说明>" --source <日志>` | 有可复用结论时 | 复制知识模板 + **同时更新分端与根索引** |
-| `new-keyword.sh "<正则>" "<提示>" "<文档>"` | 某坑第二次踩 / 会被反复问 | 往 `.keyword-map.json` 追加召回规则（正则要命中标识符，不是自然语言标题） |
+| `new-knowledge.sh <端> <分类> <name> "<说明>" --source <日志> [--keywords "a,b"]` | 有可复用结论时 | 复制知识模板 + **更新两级索引 + 自动挂召回规则**（`--no-keyword` 记豁免） |
+| `new-keyword.sh "<正则>" "<提示>" "<文档>"` | 手工补规则（沉淀时已自动挂） | 往 `.keyword-map.json` 追加召回规则（正则要命中标识符；文档路径可写相对 docs/ 或项目根，会自动归一化） |
 | `knowledge-retrieve.sh "<prompt 或 diff>"` | 写码前 / 排查前 | 关键词召回：给提示 + 文档路径（非全量） |
 | `check-daily-index.sh [--strict] [--fix-hint]` | 提交前 / 收尾前 / 体检 | 双向一致 + 路径格式 + 三处月份；`--fix-hint` 给可执行的修复命令 |
 | `recall-core.py` / `index-util.py` | 被上面的脚本调用 | 召回匹配与索引写入的**唯一实现**（适配器/脚本都调它们，别另写一份） |

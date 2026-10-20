@@ -13,10 +13,14 @@
 #   bash scripts/new-knowledge.sh backend troubleshooting stale-binary-verify \
 #     "接口验证跑的是旧二进制：源码比 main 新导致「改动没生效」误判" \
 #     --source "docs/daily/2026-09/2026-09-15_baseline-test-ddl-fix.md"
+#
+# 自动挂召回规则（默认）：从文档正文的「反引号标识符」提取正则写入 .keyword-map.json，
+#   下次 prompt / git diff 命中这些标识符时会提醒读本文。
+#   --keywords "re1,re2" 显式指定（覆盖自动提取）；--no-keyword 跳过（这条知识不会被自动召回）。
 #   分类 = architecture | guides | troubleshooting | best-practices
 set -euo pipefail
 
-ROOT=""; FLAT=0; END=""; CAT=""; NAME=""; DESC=""; SOURCE="今日任务"
+ROOT=""; FLAT=0; END=""; CAT=""; NAME=""; DESC=""; SOURCE="今日任务"; KEYWORDS=""; NO_KW=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --flat) FLAT=1; shift ;;
@@ -24,6 +28,9 @@ while [ $# -gt 0 ]; do
     --root=*) ROOT="${1#--root=}"; shift ;;
     --source) SOURCE="${2:-}"; shift 2 ;;
     --source=*) SOURCE="${1#--source=}"; shift ;;
+    --keywords) KEYWORDS="${2:-}"; shift 2 ;;
+    --keywords=*) KEYWORDS="${1#--keywords=}"; shift ;;
+    --no-keyword) NO_KW=1; shift ;;
     -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
     *)
       if [ "$FLAT" -eq 1 ]; then
@@ -126,6 +133,110 @@ if out.stat().st_size == 0:
     print("❌ 渲染结果为空，已清理半成品，中止", file=sys.stderr); sys.exit(1)
 PY
 echo "✅ 已创建知识文档：docs/knowledge/$RELFROMROOT"
+
+# ---------- 自动挂召回规则：沉淀了就必须能被召回（否则钩子装了也永远不命中） ----------
+if [ "$NO_KW" -eq 1 ]; then
+  # 记进 _exempt：这条知识“明确不需要召回”，体检不会因此变红（否则纯手册类文档会让门禁永远红）
+  ROOT="$ROOT" REL="docs/knowledge/$RELFROMROOT" python3 - <<'PYX'
+import json, os, pathlib
+root = pathlib.Path(os.environ["ROOT"]); rel = os.environ["REL"]
+mapp = root / "docs/knowledge/.keyword-map.json"
+try:
+    data = json.loads(mapp.read_text(encoding="utf-8") or "{}")
+except Exception:
+    data = {}
+if not isinstance(data, dict):
+    data = {}
+ex = data.setdefault("_exempt", [])
+if rel not in ex:
+    ex.append(rel)
+mapp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+print(f"⏭️  已跳过召回规则，并把 {rel} 记入 _exempt（明确不需要召回，体检不会因此变红）")
+PYX
+else
+  ROOT="$ROOT" REL="docs/knowledge/$RELFROMROOT" DESC="$DESC" KEYWORDS="$KEYWORDS" SOURCE="$SOURCE" python3 - <<'PYX'
+import json, os, pathlib, re, sys
+
+root = pathlib.Path(os.environ["ROOT"])
+rel = os.environ["REL"]
+desc = os.environ["DESC"]
+kw = os.environ["KEYWORDS"].strip()
+doc = root / rel
+if not doc.exists():
+    print(f"⚠️  知识文档不存在，跳过召回规则：{rel}")
+    sys.exit(0)
+
+# 候选来源优先级：来源日志（真实任务内容最全）→ 知识正文 → 说明
+text = doc.read_text(encoding="utf-8")
+src_path = None
+for cand in (root / os.environ.get("SOURCE", ""), root / "docs" / os.environ.get("SOURCE", "")):
+    try:
+        if cand.is_file():
+            src_path = cand
+            break
+    except OSError:
+        pass
+if src_path is not None:
+    text = src_path.read_text(encoding="utf-8", errors="replace") + "\n" + text
+text += "\n" + desc
+if kw:
+    pats = [x.strip() for x in kw.split(",") if x.strip()]
+    src = "显式 --keywords"
+else:
+    # 只从「反引号里的代码标识符」提取：这是文档里最可靠的锚点。
+    # 不拿自然语言标题做正则——既不准，又容易误命中（真机验证过）。
+    cands = re.findall(r"`([^`\n]{2,60})`", text)
+    pats, seen = [], set()
+    for c in cands:
+        c = c.strip()
+        if len(c) < 4 or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.\-]*", c):
+            continue                      # 只认标识符（路径/句子/太短的都不算）
+        low = c.lower()
+        if low in {"bash", "json", "md", "sh", "python3", "true", "false", "hash",
+                   "path", "file", "note", "todo", "git", "npm", "npx", "cd", "ls",
+                   "cat", "grep", "echo", "sudo", "main", "head", "diff"}:
+            continue
+        if low.endswith((".md", ".json", ".sh", ".js", ".ts", ".vue", ".py", ".go", ".mjs")):
+            continue
+        # 保守：只认「camelCase / snake_case / kebab-case」这类像代码标识符的
+        # （模板里的普通小写词、plain 英文不会被当成规则，避免误命中）
+        if not (any(ch.isupper() for ch in c[1:]) or "_" in c or "-" in c):
+            continue
+        if c not in seen:
+            seen.add(c)
+            pats.append(c)
+    pats = pats[:3]
+    src = "正文反引号标识符"
+
+if not pats:
+    print("⚠️  文档里没找到可用代码标识符 → 这条知识暂时无法自动召回。")
+    print("    补一条（用代码标识符当正则）：")
+    print(f'    bash scripts/new-keyword.sh "<标识符>" "{desc}" "{rel}"')
+    sys.exit(0)
+
+mapp = root / "docs/knowledge/.keyword-map.json"
+try:
+    data = json.loads(mapp.read_text(encoding="utf-8") or "{}")
+except Exception:
+    data = {}
+if not isinstance(data, dict):
+    data = {}
+added = merged = 0
+for pat in pats:
+    entry = data.get(pat)
+    if entry is None:
+        data[pat] = {"docs": [rel], "hint": desc}
+        added += 1
+    else:
+        docs = entry.setdefault("docs", [])
+        if rel not in docs:
+            docs.append(rel)
+            merged += 1
+mapp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+print(f"🔎 已挂召回规则（{src}）：{', '.join(pats)}")
+print(f"    新增 {added} 条 / 并入已有 {merged} 条 → 命中这些标识符时会提醒读本文")
+PYX
+fi
 
 ENDV="${END:-}" FLAT="$FLAT" CAT="$CAT" NAME="$NAME" DESC="$DESC" SOURCE="$SOURCE" ROOT="$ROOT" python3 - <<'PY'
 import os, pathlib
