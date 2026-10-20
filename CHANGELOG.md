@@ -2,6 +2,16 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## 0.4.1 — 2026-10-20
+
+**0.4.0 在真实项目上迁移时暴露的两个顺序问题**（都已修 + 两个真实项目验证通过）
+
+- 🐛 **迁移后 AGENTS 托管块不更新**：`assets` 路径在迁移前就解析成了旧的 `scripts/assets`，
+  搬走之后 `render()` 读不到模板直接报错 → 托管块停留在旧命令。现在迁移后立即改指 `.knowlog/assets`。
+- 🐛 **`.knowlog/adapters/` 里的桥接/钩子是旧副本**：迁移只搬文件，不会替换内容；
+  结果 DSH 桥接仍按 `scripts/recall-core.py` 找召回核心 → **静默失效**。
+  现在适配器归 knowlog 所有，内容不同即同步（`--no-force-scripts` 可关）。
+
 ## 0.4.0 — 2026-10-20　（破坏性变更：目录改名）
 
 **项目内工具目录 `scripts/` → `.knowlog/`：归属明确，升级不再需要用户做选择**

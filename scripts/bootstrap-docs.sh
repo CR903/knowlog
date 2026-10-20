@@ -377,7 +377,10 @@ if (legacy / "bootstrap-docs.sh").exists() and (legacy / "assets").is_dir():
                     shutil.move(str(item), str(target))
                 migrated += 1
     if migrated:
-        notes.append(f"迁移：旧 scripts/ → {TOOL}/（{migrated} 项；names 与你自己的文件不重叠，业务脚本原样留在原处）")
+        notes.append(f"迁移：旧 scripts/ → {TOOL}/（{migrated} 项；只搬 knowlog 名下文件，业务脚本原样留在原处）")
+        # assets 刚被搬走 → 本次渲染必须改用新位置（否则 render() 会读旧路径直接崩）
+        if str(assets).startswith(str(legacy)):
+            assets = dst_dir / "assets"
     if not dry:
         try:
             rest = [x for x in legacy.iterdir() if not x.name.startswith("._") and x.name != ".DS_Store"]
@@ -460,9 +463,22 @@ if assets.resolve() != asset_dst.resolve():
 if not dry:
     extra_src = srcdir.parent / "adapters"
     extra_dst = dst_dir / "adapters"
-    if extra_src.is_dir() and not extra_dst.exists():
-        shutil.copytree(extra_src, extra_dst)
-        created.append(f"{TOOL}/adapters/（各 agent 适配器）")
+    if extra_src.is_dir():
+        if not extra_dst.exists():
+            shutil.copytree(extra_src, extra_dst)
+            created.append(f"{TOOL}/adapters/（各 agent 适配器）")
+        elif RESYNC:
+            # 适配器同样是 knowlog 资产（桥接/钩子本体）：内容不同就更新，否则旧项目会继续用旧桥接
+            n = 0
+            for f in sorted(extra_src.rglob("*")):
+                if f.is_dir() or f.name.startswith("._") or f.name == ".DS_Store":
+                    continue
+                t = extra_dst / f.relative_to(extra_src)
+                if not t.exists() or t.read_bytes() != f.read_bytes():
+                    t.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(f, t); n += 1
+            if n:
+                created.append(f"{TOOL}/adapters/（{n} 个文件同步）")
 
 # ---------- 4. 约束：托管块（规则）+ 手工维护区（路由表，只创建一次） ----------
 put_block_managed("AGENTS.md", render("agents-block.md.tmpl"),
