@@ -86,7 +86,7 @@ def dead_links() -> list[str]:
 def gate(script: str) -> tuple[int, str]:
     sh = PROJ / "scripts" / script
     if not sh.exists():
-        return 127, f"scripts/{script} 不存在"
+        return 127, f".knowlog/{script} 不存在"
     p = subprocess.run(["bash", str(sh), "--strict", "--root", str(PROJ)],
                        capture_output=True, text=True, timeout=180)
     return p.returncode, (p.stdout + p.stderr).strip()[-400:]
@@ -172,7 +172,7 @@ def month_mismatches() -> list[str]:
 def recall_check(probes: list[str]) -> tuple[bool, bool, str]:
     """跑项目里的 knowledge-retrieve.sh：命中吗？命中的文档真实存在吗？
 
-    故意同时试两种调用形式：`bash scripts/knowledge-retrieve.sh "<probe>"`（任务里给用户的原话）
+    故意同时试两种调用形式：`bash .knowlog/knowledge-retrieve.sh "<probe>"`（任务里给用户的原话）
     与加 `--root` 的形式 —— 免得把"自建了等价召回、但 CLI 契约不同"的基线误判为"没有召回"。
     """
     sh = PROJ / ".knowlog" / "knowledge-retrieve.sh"
@@ -352,7 +352,7 @@ elif EVAL == "eval-11":
         check("体检总入口 docs-doctor.sh --strict 三项全绿", p.returncode == 0,
               f"rc={p.returncode} {(p.stdout + p.stderr).strip()[-300:]}")
     else:
-        check("体检总入口 docs-doctor.sh --strict 三项全绿", False, "scripts/docs-doctor.sh 不存在")
+        check("体检总入口 docs-doctor.sh --strict 三项全绿", False, ".knowlog/docs-doctor.sh 不存在")
     check("AGENTS.md 托管块未被破坏", has_block(), "")
     check("索引里用户手写的「团队约定」段落未被删", "团队约定" in idx_text(), "")
 

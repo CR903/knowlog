@@ -41,6 +41,11 @@ if [ -z "$ROOT" ]; then
   }
 fi
 
+# 项目内工具目录：.knowlog（新）优先，兼容旧 scripts/
+TOOL="$ROOT/.knowlog"
+if [ ! -d "$TOOL" ] && [ -f "$ROOT/scripts/bootstrap-docs.sh" ]; then TOOL="$ROOT/scripts"; fi
+TOOLNAME="${TOOL#"$ROOT"/}"
+
 [ -n "$PAT" ] && [ -n "$HINT" ] && [ -n "$DOCS" ] || {
   echo "❌ 用法：bash scripts/new-keyword.sh \"<正则>\" \"<提示>\" \"<文档路径,文档2>\" [--root DIR]" >&2; exit 2; }
 
@@ -89,5 +94,5 @@ print(f"✅ 已写入召回规则（共 {len(data)} 条）：{pat}")
 print(f"   提示：{hint}")
 print(f"   文档：{', '.join(docs)}")
 print("\n验证：")
-print(f"  bash scripts/knowledge-retrieve.sh \"{pat.split('|')[0]}\"")
+print(f"  bash {os.environ.get('TOOLNAME', '.knowlog')}/knowledge-retrieve.sh \"{pat.split(chr(124))[0]}\"")
 PY

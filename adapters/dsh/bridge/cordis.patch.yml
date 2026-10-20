@@ -17,6 +17,6 @@
       config:
         # 相对项目根（DSH 在项目工作区启动时解析）
         root: "."
-        core: "scripts/recall-core.py"
+        # core 省略：桥接默认依次找 .knowlog/recall-core.py、scripts/recall-core.py
         maxChars: 4000
         minQueryChars: 4

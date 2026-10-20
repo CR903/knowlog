@@ -153,9 +153,9 @@ mkproj v4-drift demo-drift
 bash "$SKILL_DIR/scripts/bootstrap-docs.sh" --root "$FX/v4-drift" --project-name demo-drift > /dev/null 2>&1
 (
   cd "$FX/v4-drift" || exit 1
-  PROJECT_NAME=demo-drift bash scripts/new-daily-log.sh paging-fix 2026-08-22 > /dev/null 2>&1
-  PROJECT_NAME=demo-drift bash scripts/new-daily-log.sh idempotency 2026-09-05 > /dev/null 2>&1
-  bash scripts/new-daily-log.sh audit-log 2026-10-11 > /dev/null 2>&1
+  PROJECT_NAME=demo-drift bash .knowlog/new-daily-log.sh paging-fix 2026-08-22 > /dev/null 2>&1
+  PROJECT_NAME=demo-drift bash .knowlog/new-daily-log.sh idempotency 2026-09-05 > /dev/null 2>&1
+  bash .knowlog/new-daily-log.sh audit-log 2026-10-11 > /dev/null 2>&1
   # 填实三篇日志正文（判"内容未丢失"用）
   cat > docs/daily/2026-08/2026-08-22_paging-fix.md <<'EOF'
 # 2026-08-22_paging-fix 任务日志
@@ -237,7 +237,7 @@ EOF
 
 ## 📌 团队约定（手写，勿删）
 
-- 提交前必须跑 `bash scripts/docs-doctor.sh --quiet`。
+- 提交前必须跑 `bash .knowlog/docs-doctor.sh --quiet`。
 EOF
 )
 

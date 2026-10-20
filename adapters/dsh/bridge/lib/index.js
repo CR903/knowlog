@@ -1,7 +1,7 @@
 /**
  * docs-recall-dsh — DSH 召回桥接插件（Cordis 插件）
  *
- * 职责：在"用户提交 prompt"那一轮，调用项目内的 `scripts/recall-core.py`，
+ * 职责：在"用户提交 prompt"那一轮，调用项目内的 `.knowlog/recall-core.py`（旧项目 `scripts/`），
  * 把命中的规范/坑点作为一条带来源的 user 消息送进该轮上下文。
  * 与 Claude Code / Codex 的钩子、OpenCode 的插件**同源**：匹配逻辑只有一份
  * （recall-core.py），本文件只负责"怎么送进 DSH 的上下文"。
@@ -32,7 +32,7 @@
  * （与上游 `createMessage` 的实现逐字一致：`{...input, role:'user', id: randomUUID()}`）。
  *
  * 任何一步失败都只记日志、不动宿主；此时用命令行兜底：
- *   bash scripts/knowledge-retrieve.sh "<prompt>"
+ *   bash .knowlog/knowledge-retrieve.sh "<prompt>"
  */
 
 import { execFileSync } from "node:child_process";
@@ -146,7 +146,7 @@ export function apply(ctx, config = {}) {
    *
    * 为什么不能像最初那样在 apply() 里 `resolve(".")`：web profile 是**常驻进程**，
    * 它的 cwd 往往是 `/` 或 `~`（本机实测 cwd=/），于是插件会在加载时就去检查
-   * `/scripts/recall-core.py`、找不到便直接 return —— 在任何项目里都失效。
+   * `/.knowlog/recall-core.py`、找不到便直接 return —— 在任何项目里都失效。
    * 官方姿势是问 workingDirectory 服务要该 agent 的工作目录（第一方 dsh-tool-skill 同款），
    * 兜底顺序：显式绝对配置 → workingDirectory → session 元数据里的 cwd → 进程 cwd。
    */

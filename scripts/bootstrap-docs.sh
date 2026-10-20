@@ -516,8 +516,8 @@ if [ "$DRY" -eq 0 ]; then
   echo
   echo "下一步："
   echo "  1. 记日志：bash ${TOOL#$ROOT/}/new-daily-log.sh <slug>"
-  echo "  2. 沉淀：bash scripts/new-knowledge.sh <端|--flat> <分类> <name> \"<说明>\" --source <日志路径>"
-  echo "  3. 召回：bash scripts/new-keyword.sh \"<正则>\" \"<提示>\" \"<文档>\"（并 install-recall.sh 装到各 agent）"
-  echo "  4. 门禁：bash scripts/check-daily-index.sh --strict && bash scripts/check-knowledge-index.sh --strict"
-  echo "  5. 既有异构文档：bash scripts/adopt-docs.sh（先看计划，再 --apply）"
+  echo "  2. 沉淀：bash ${TOOL#$ROOT/}/new-knowledge.sh <端|--flat> <分类> <name> \"<说明>\" --source <日志路径>"
+  echo "  3. 召回：bash ${TOOL#$ROOT/}/new-keyword.sh \"<正则>\" \"<提示>\" \"<文档>\"（并 install-recall.sh 装到各 agent）"
+  echo "  4. 门禁：bash ${TOOL#$ROOT/}/check-daily-index.sh --strict && bash ${TOOL#$ROOT/}/check-knowledge-index.sh --strict"
+  echo "  5. 既有异构文档：bash ${TOOL#$ROOT/}/adopt-docs.sh（先看计划，再 --apply）"
 fi

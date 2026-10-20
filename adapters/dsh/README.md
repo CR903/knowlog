@@ -162,7 +162,7 @@ DSH 的上下文/系统提示由它自己的插件（如 `dsh-agent-instructions
 **关键词召回**用命令行兜底（与其它 agent 完全同源）：
 
 ```bash
-bash scripts/knowledge-retrieve.sh "<prompt 或代码片段>"
+bash .knowlog/knowledge-retrieve.sh "<prompt 或代码片段>"
 ```
 
 DSH **原生吃 skill**（`npx skills add <本 skill 的仓库或路径>` 装进去即可；本机已有先例：
@@ -176,7 +176,7 @@ DSH **原生吃 skill**（`npx skills add <本 skill 的仓库或路径>` 装进
 adapters/dsh/bridge/
 ├── package.json          # dsh.bundle.patch: "./cordis.patch.yml"
 ├── cordis.patch.yml      # 包内 patch（`dsh plugin add` 路线用裸包名 docs-recall-dsh）
-├── lib/index.js          # 插件本体：注册 agent/pre-step，调 scripts/recall-core.py
+├── lib/index.js          # 插件本体：注册 agent/pre-step，调 .knowlog/recall-core.py
 └── selftest.mjs          # 离线功能自测（16 条断言，不起 DSH）
 ```
 
@@ -238,8 +238,8 @@ dsh --profile web --patch adapters/dsh/cordis.patch.yml --dump-config | grep -A6
 插件只是"自动召回"的加分项；**不装插件也完全能用**：
 
 ```bash
-bash scripts/knowledge-retrieve.sh "<prompt 或代码片段>"     # 命令行召回
-git diff --cached | bash scripts/knowledge-retrieve.sh       # 拿暂存区当查询
+bash .knowlog/knowledge-retrieve.sh "<prompt 或代码片段>"     # 命令行召回
+git diff --cached | bash .knowlog/knowledge-retrieve.sh       # 拿暂存区当查询
 ```
 
 `AGENTS.md` 的 `KNOWLOG` 托管块（静态约束）仍然是**默认必须**的那一层。

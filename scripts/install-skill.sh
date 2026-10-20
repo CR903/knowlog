@@ -266,7 +266,7 @@ for a in $AGENTS; do
           echo "        （DSH 每轮注入 = agent/pre-step waterfall 插件；桥接包已落到 .dsh/bridge/，"
           echo "          免安装。先 dry-run：dsh --profile web --patch .dsh/docs-recall.patch.yml --dump-config"
           echo "          要真生效需你自己把 insert 段并进 \$DSH_HOME/profiles/<profile>/cordis.patch.yml"
-          echo "          —— 或改用命令行兜底：bash scripts/knowledge-retrieve.sh \"<prompt>\"）"
+          echo "          —— 或改用命令行兜底：bash .knowlog/knowledge-retrieve.sh \"<prompt>\"）"
         fi
       fi
       ;;
@@ -279,6 +279,6 @@ if [ ${#INSTALLED[@]} -gt 0 ]; then
 fi
 echo "用法："
 echo "  · Claude / OpenCode：新开会话后说「帮我把这个项目的文档体系建起来」即可触发（skill 按描述自动加载）"
-echo "  · 项目级落地（日志/知识/门禁/召回）：bash scripts/bootstrap-docs.sh --with-recall"
+echo "  · 项目级落地（日志/知识/门禁/召回）：cd <项目> && npx knowlog init --agent auto"
 echo "  · 体检：bash scripts/docs-doctor.sh --fix-hint"
 echo "  · 版本对比：bash scripts/install-skill.sh --check"

@@ -12,7 +12,7 @@
         "知识库两级索引存在（分端 index.md + 根 index.md）",
         "docs/domain context/ 已建立（领域记忆层）",
         "docs/agents/ 已建立（给 agent 的约定）",
-        "scripts/ 下六个脚本齐备且可执行",
+        ".knowlog/ 下六个脚本齐备且可执行",
         "AGENTS.md 含托管块标记（KNOWLOG:START/END）且写了日志/门禁约束",
         "门禁 check-daily-index.sh --strict 通过（退出码 0）",
         "至少演示创建了一篇日志，且落位到 daily/<YYYY-MM>/",

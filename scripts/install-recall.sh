@@ -51,6 +51,11 @@ if [ -z "$ROOT" ]; then
   }
 fi
 
+# 项目内工具目录：.knowlog（新）优先，兼容旧 scripts/
+TOOL="$ROOT/.knowlog"
+if [ ! -d "$TOOL" ] && [ -f "$ROOT/scripts/bootstrap-docs.sh" ]; then TOOL="$ROOT/scripts"; fi
+TOOLNAME="${TOOL#"$ROOT"/}"
+
 # ---------- 检测 ----------
 detect() {
   # 注意：本函数在 set -e 下运行，**不能**以 `[ ... ] && cmd` 结尾
@@ -75,7 +80,7 @@ describe() {
     cursor)   echo "Cursor           → .cursor/rules/knowlog.mdc（alwaysApply）" ;;
     gemini)   echo "Gemini CLI       → GEMINI.md 指针块" ;;
     copilot)  echo "GitHub Copilot   → .github/copilot-instructions.md 指针块" ;;
-    generic)  echo "其它 agent       → docs/agents/recall.md 指针 + bash scripts/knowledge-retrieve.sh 兜底" ;;
+    generic)  echo "其它 agent       → docs/agents/recall.md 指针 + bash $TOOLNAME/knowledge-retrieve.sh 兜底" ;;
   esac
 }
 
@@ -88,7 +93,7 @@ if [ "$LIST" -eq 1 ]; then
     printf '   %s\n' "$(describe "$a")"
   done
   echo
-  echo "   建议：bash scripts/install-recall.sh --agent auto"
+  echo "   建议：bash $TOOLNAME/install-recall.sh --agent auto"
   exit 0
 fi
 
@@ -99,7 +104,7 @@ AGENTS="$(printf '%s' "$AGENTS" | tr ',' ' ')"
 
 KMAP="$ROOT/docs/knowledge/.keyword-map.json"
 if [ ! -f "$KMAP" ]; then
-  echo "❌ 还没装文档体系（缺 ${KMAP}）。先跑：bash scripts/bootstrap-docs.sh" >&2
+  echo "❌ 还没装文档体系（缺 ${KMAP}）。先跑：npx knowlog init（或 bash $TOOLNAME/bootstrap-docs.sh）" >&2
   exit 1
 fi
 REAL_RULES=$(python3 - "$KMAP" <<'PY'
@@ -112,11 +117,11 @@ print(sum(1 for k, v in d.items() if isinstance(v, dict) and not k.startswith("_
 PY
 )
 if [ "$REAL_RULES" -eq 0 ]; then
-  echo "⚠️  召回表里还没有真实规则（只有占位）→ 装了也不会命中。加第一条：bash scripts/new-keyword.sh \"<正则>\" \"<提示>\" \"<文档>\""
+  echo "⚠️  召回表里还没有真实规则（只有占位）→ 装了也不会命中。加第一条：bash $TOOLNAME/new-keyword.sh \"<正则>\" \"<提示>\" \"<文档>\""
 fi
 
-ROOT="$ROOT" AGENTS="$AGENTS" AD="$AD" DRY="$DRY" python3 - <<'PY'
-import json, os, pathlib, shutil, stat, sys
+ROOT="$ROOT" AGENTS="$AGENTS" AD="$AD" DRY="$DRY" TOOLNAME="$TOOLNAME" python3 - <<'PY'
+import json, os, pathlib, re, shutil, stat, sys
 
 root = pathlib.Path(os.environ["ROOT"]); ad = pathlib.Path(os.environ["AD"])
 agents = os.environ["AGENTS"].split(); dry = os.environ["DRY"] == "1"
@@ -127,7 +132,24 @@ MARK_END = "<!-- KNOWLOG:END -->"
 done, skipped, notes = [], [], []
 
 
+TOOLNAME = os.environ.get("TOOLNAME", ".knowlog")
+
+
+def projectize(text: str) -> str:
+    """把适配器文本里的项目级 scripts/ 引用改成实际工具目录（team 目录名可能是旧 scripts/）。"""
+    if TOOLNAME == "scripts":
+        return text
+    # 旧目录名用变量拼出来：bootstrap 复制到项目时会把字面量 "scripts/" 改写成新目录，
+    # 如果这里写字面量，函数自身的匹配模式会被改坏（自我指涉，真踩过）。
+    legacy = "scripts"
+    for pat in ("bash " + legacy + "/", "`" + legacy + "/", '"' + legacy + "/", "'" + legacy + "/",
+                legacy + "/recall-core.py", legacy + "/knowledge-retrieve.sh", legacy + "/index-util.py"):
+        text = text.replace(pat, pat.replace(legacy + "/", TOOLNAME + "/"))
+    return text
+
+
 def put(rel: str, content: str, exec_bit=False):
+    content = projectize(content)
     p = root / rel
     if p.exists() and p.read_text(encoding="utf-8", errors="ignore") == content:
         skipped.append(rel); return
@@ -164,9 +186,15 @@ def put_tree(src: pathlib.Path, rel: str):
 
 def put_block(rel: str, block: str):
     """把指针块写进文件（有标记则替换块内，没有则追加）——保证不会写第二份规则"""
-    p = root / rel; block = block.rstrip("\n") + "\n"
+    p = root / rel; block = projectize(block.rstrip("\n") + "\n")
     if p.exists():
         old = p.read_text(encoding="utf-8")
+        # 新旧标记并存（老项目升级）→ 先删掉旧标记块，避免同一文件里两份指针
+        if LEGACY_START in old and MARK_START in old:
+            old = re.sub(re.escape(LEGACY_START) + r"[^\n]*" + r".*?" + re.escape(MARK_END),
+                         "", old, flags=re.S).strip() + "\n"
+            if not dry:
+                p.write_text(old, encoding="utf-8")
         if LEGACY_START in old and MARK_END in old and MARK_START not in old:
             # 旧标记的指针块：整块替换成新版（兼容老项目）
             new_old = re.sub(re.escape(LEGACY_START) + r"[^\n]*" + r".*?" + re.escape(MARK_END),
@@ -175,7 +203,6 @@ def put_block(rel: str, block: str):
                 p.write_text(new_old, encoding="utf-8")
             done.append(rel + "（指针块标记已迁移）"); return
         if MARK_START in old and MARK_END in old:
-            import re
             new = re.sub(MARK_RE, lambda _: block.strip(), old, flags=re.S)
             if new == old:
                 skipped.append(rel + "（指针块已最新）"); return
@@ -230,7 +257,7 @@ def merge_hook_json(rel: str, cmd: str, timeout: int = 10):
 
 
 shim = ad / "hook-shim.py"
-pointer = (ad / "static" / "pointer.block.md").read_text(encoding="utf-8")
+pointer = projectize((ad / "static" / "pointer.block.md").read_text(encoding="utf-8"))
 
 for a in agents:
     if a == "claude":
@@ -276,7 +303,7 @@ for a in agents:
       config:
         # 相对项目根（DSH 在项目工作区启动时解析）
         root: "."
-        core: "scripts/recall-core.py"
+        # core 省略：桥接默认依次找 .knowlog/recall-core.py、scripts/recall-core.py
         maxChars: 4000
         minQueryChars: 4
 """)
@@ -285,7 +312,7 @@ for a in agents:
                      "        · 先 dry-run：dsh --profile web --patch .dsh/docs-recall.patch.yml --dump-config | grep -A6 docs-recall\n"
                      "        · 要真生效：把 .dsh/docs-recall.patch.yml 的 insert 段并进 $DSH_HOME/profiles/<profile>/cordis.patch.yml"
                      "（这一步只改你自己的 profile，脚本不代劳）\n"
-                     "        · 不想装插件也行：命令行兜底 `bash scripts/knowledge-retrieve.sh \"<prompt>\"`，与插件同一份召回核心")
+                     "        · 不想装插件也行：命令行兜底 `bash " + TOOLNAME + "/knowledge-retrieve.sh \"<prompt>\"`，与插件同一份召回核心")
     elif a == "cursor":
         put_from(ad / "cursor" / "knowlog.mdc", ".cursor/rules/knowlog.mdc")
     elif a == "gemini":
@@ -293,7 +320,7 @@ for a in agents:
     elif a == "copilot":
         put_block(".github/copilot-instructions.md", pointer)
     elif a == "generic":
-        put("docs/agents/recall.md", pointer.rstrip() + """
+        put("docs/agents/recall.md", (pointer.rstrip() + """
 
 ## 没有"每轮注入"机制时怎么召回
 
@@ -301,10 +328,10 @@ for a in agents:
 没有可靠的每轮注入。这些环境一律用命令行兜底，结果与有钩子的 agent 完全同源：
 
 ```bash
-bash scripts/knowledge-retrieve.sh "<任务描述或将要改的代码片段>"
-git diff --cached | bash scripts/knowledge-retrieve.sh
+bash @@TOOL@@/knowledge-retrieve.sh "<任务描述或将要改的代码片段>"
+git diff --cached | bash @@TOOL@@/knowledge-retrieve.sh
 ```
-""")
+""").replace("@@TOOL@@", TOOLNAME))
     else:
         notes.append(f"⚠️ 未知 agent：{a}（跳过；可用 generic）")
 
@@ -341,5 +368,5 @@ PY
     python3 -c "import ast,sys" 2>/dev/null
     grep -q "chat.message" "$ROOT/.opencode/plugins/docs-recall.ts" && echo "   ✅ .opencode/plugins/docs-recall.ts → 含 chat.message 钩子（真实注入需开一次会话，可设 DOCS_RECALL_DEBUG=1 看 .opencode/docs-recall.log）" || echo "   ⚠️  opencode 插件缺少 chat.message 钩子"
   fi
-  echo "   通用兜底自测：bash scripts/knowledge-retrieve.sh \"$PROBE\""
+  echo "   通用兜底自测：bash $TOOLNAME/knowledge-retrieve.sh \"$PROBE\""
 fi

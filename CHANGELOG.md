@@ -2,6 +2,22 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## 0.4.2 — 2026-10-20
+
+**改名后的「引用与提示词」全量审计修复**（用户指出的：提示词/引用里不能还留着 scripts/）
+
+- 🐛 **给 agent 的指针文件没跟着改名**：`GEMINI.md`、`docs/agents/recall*.md`、copilot/cursor 规则块里的命令
+  仍是 `bash scripts/...`（agent 会照着执行失败）。根因：指针文本来自 `adapters/static/pointer.block.md`，
+  写盘时未做"项目目录"改写。现在写盘统一改写（`projectize`），并把函数自身的匹配模式改为运行时拼接
+  （否则会被复制期的改写弄坏——自我指涉，真踩过）。
+- 🐛 **同一文件里出现两份指针块**：老项目同时存在 `DOCS-SYSTEM` 与 `KNOWLOG` 两种标记时，新块被追加
+  → 现在写新块前先清掉旧标记块。
+- 🐛 **DSH patch 写死 `core: scripts/recall-core.py`**：会覆盖桥接的 `.knowlog` 回退 → 改为省略，
+  由桥接依次找 `.knowlog/` 与 `scripts/`。
+- 💬 **CLI/脚本内的提示**（体检修法、记日志下一步、沉淀/召回建议）改为显示**项目实际工具目录**。
+- 🧪 自测 118 项仍全绿；两个真实项目（smarterlab / smarterlab-terminal-rms）全量扫描后
+  **0 处残留项目级 `scripts/`**（仅剩用户自己的业务脚本路径）。
+
 ## 0.4.1 — 2026-10-20
 
 **0.4.0 在真实项目上迁移时暴露的两个顺序问题**（都已修 + 两个真实项目验证通过）

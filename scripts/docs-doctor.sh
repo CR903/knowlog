@@ -85,13 +85,13 @@ echo
 if [ "$FAILED" -eq 1 ]; then
   echo "❌ 体检未通过。上面每个失败项都给了修复建议；加 --fix-hint 看可复制命令。"
   echo "   常见修法速查（详见 references/maintenance.md）："
-  echo "     · 结构/脚本缺失        → bash scripts/bootstrap-docs.sh"
-  echo "     · 日志散落/月份不符    → bash scripts/check-daily-index.sh --fix-hint"
-  echo "     · 知识未登记/死链      → bash scripts/check-knowledge-index.sh --fix-hint"
-  echo "     · 体系外的旧日志       → bash scripts/adopt-docs.sh（先看计划，再 --apply）"
+  echo "     · 结构/脚本缺失        → bash $TOOLNAME/bootstrap-docs.sh"
+  echo "     · 日志散落/月份不符    → bash $TOOLNAME/check-daily-index.sh --fix-hint"
+  echo "     · 知识未登记/死链      → bash $TOOLNAME/check-knowledge-index.sh --fix-hint"
+  echo "     · 体系外的旧日志       → bash $TOOLNAME/adopt-docs.sh（先看计划，再 --apply）"
   echo
   echo "  📝 修完别漏一步：给这次修复记一笔 —— 「我修了什么、为什么」正是留给未来自己的信息。"
-  echo "     bash scripts/new-daily-log.sh fix-doc-drift   # slug 自取；索引行会自动插好"
+  echo "     bash $TOOLNAME/new-daily-log.sh fix-doc-drift   # slug 自取；索引行会自动插好"
   exit 1
 fi
 echo "✅ 体检通过：结构规范、日志与知识索引全部一致。"

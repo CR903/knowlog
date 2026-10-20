@@ -38,6 +38,11 @@ if [ -z "$ROOT" ]; then
     if [ -f "$_self/SKILL.md" ] && [ -d "$_self/assets" ]; then ROOT="$PWD"; else ROOT="$_self"; fi
   }
 fi
+
+# 项目内工具目录：.knowlog（新）优先，兼容旧 scripts/
+TOOL="$ROOT/.knowlog"
+if [ ! -d "$TOOL" ] && [ -f "$ROOT/scripts/bootstrap-docs.sh" ]; then TOOL="$ROOT/scripts"; fi
+TOOLNAME="${TOOL#"$ROOT"/}"
 export ROOT APPLY
 
 python3 - <<'PY'
@@ -154,13 +159,13 @@ for end_dir in (end_dirs if layout == "by-end" else [None]):
 print(f"📚 reindex-knowledge（布局：{layout}{' · dry-run' if not apply else ' · 已写盘'}）")
 print(f"   分端索引补齐：{added_end} 行 · 根索引补齐：{added_root} 行")
 if not apply and (added_end or added_root):
-    print("\n执行：bash scripts/reindex-knowledge.sh --apply")
+    print(f"\n执行：bash {os.environ.get('TOOLNAME', '.knowlog')}/reindex-knowledge.sh --apply")
 if apply and (added_end or added_root):
     print("\n📝 补完记得记一笔（「我补了哪些索引、为什么之前漏了」值得留给未来）：bash scripts/new-daily-log.sh reindex-knowledge-index")
 PY
 
 # ---------- 召回规则补齐（同一套保守提取：camelCase / snake_case / kebab） ----------
-ROOT="$ROOT" APPLY="$APPLY" python3 - <<'PYX'
+ROOT="$ROOT" APPLY="$APPLY" TOOLNAME="$TOOLNAME" python3 - <<'PYX'
 import json, os, pathlib, re
 
 root = pathlib.Path(os.environ["ROOT"]); apply = os.environ["APPLY"] == "1"
@@ -226,7 +231,7 @@ if missing:
         mapp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         print(f"   ✅ 已补 {added} 条规则（--apply）")
     else:
-        print("   执行：bash scripts/reindex-knowledge.sh --apply")
+        print(f"   执行：bash {os.environ.get('TOOLNAME', '.knowlog')}/reindex-knowledge.sh --apply")
 else:
     print("\n🔎 召回复盘：所有知识文档都已有召回规则")
 PYX

@@ -30,7 +30,7 @@ def check(text: str, passed: bool, evidence: str):
 def run_gate() -> tuple[int, str]:
     sh = PROJ / "scripts" / "check-daily-index.sh"
     if not sh.exists():
-        return 127, "scripts/check-daily-index.sh 不存在"
+        return 127, ".knowlog/check-daily-index.sh 不存在"
     p = subprocess.run(
         ["bash", str(sh), "--strict", "--root", str(PROJ)],
         capture_output=True,
@@ -120,7 +120,7 @@ if EVAL == "eval-0":
         for s in scripts
         if (PROJ / "scripts" / s).exists() and os.access(PROJ / "scripts" / s, os.X_OK)
     ]
-    check("scripts/ 下六个脚本齐备且可执行", len(have) == len(scripts), f"有: {have}")
+    check(".knowlog/ 下六个脚本齐备且可执行", len(have) == len(scripts), f"有: {have}")
     agents = (
         (PROJ / "AGENTS.md").read_text(encoding="utf-8")
         if (PROJ / "AGENTS.md").exists()

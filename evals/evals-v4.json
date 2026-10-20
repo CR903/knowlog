@@ -7,7 +7,7 @@
     "基线隔离改为机械隔离：跑 without_skill 时把已安装的 skill 临时移开 + 加 --disable-slash-commands，并在 run_meta.json 里留证。",
     "评分除脚本断言外，新增 3 条人工评审维度（见 review-rubric.md），避免只评「结构对不对」而漏掉「写得好不好」。",
     "扩评（eval-10..12，覆盖未被覆盖的三类能力）：跨月补写+索引占位填实、索引漂移修复、单面项目 flat 布局+关键词召回。",
-    "eval-10（cross-month-backfill）夹具里的 docs/index.md 与一篇 2026-10 日志是「用户自己攒的旧文档」（原始素材），不是已建好的 knowlog 体系：没有 scripts/、没有 AGENTS.md、没有模板；索引里只有 2026-10 一张表，跨月补写要自己新起 2026-09 表格。",
+    "eval-10（cross-month-backfill）夹具里的 docs/index.md 与一篇 2026-10 日志是「用户自己攒的旧文档」（原始素材），不是已建好的 knowlog 体系：没有 .knowlog/、没有 AGENTS.md、没有模板；索引里只有 2026-10 一张表，跨月补写要自己新起 2026-09 表格。",
     "eval-11（index-drift-repair）是夹具自带体系的例外：『修索引漂移』必须已有索引与门禁才成立（否则无从修复）。夹具用 bootstrap-docs.sh 生成完整体系后人为注入四类漂移（死链 / 目录月≠文件名月 / 索引缺行 / 孤儿知识文档）——它的 measures 明确写的是『修复能力，不是搭建能力』。",
     "eval-12（single-end-flat-recall）夹具只有一个「面」（纯 Go CLI），用来验证知识库应落 flat（不带端层），并要求真加一条关键词召回规则、能用 `knowledge-retrieve.sh` 命中（召回是真能用的，不只是文件存在）。"
   ],
@@ -57,8 +57,8 @@
       "name": "single-end-flat-recall",
       "fixture": "v4-flat",
       "measures": "单面项目的知识库布局（应为 flat、不造端层）+ 关键词召回是真能用的（`knowledge-retrieve.sh` 用标识符能命中并指向已存在文档）",
-      "prompt": "这是我们内部的一个 CLI 工具 `csvtool`，**只有一个面**（只有 Go，没有前后端之分）。帮我建一套开发文档体系；顺便把「导出 CSV 列顺序会变」这个反复踩的坑沉淀成可复用的知识，并加一条关键词召回 —— 以后我写导出相关代码时，跑 `bash scripts/knowledge-retrieve.sh \"...\"` 就能被提示去看这条知识（关键词请用代码里的标识符 `csvColumns`，别用自然语言标题）。做完告诉我知识放在哪、怎么召回。",
-      "expected_output": "知识库落 flat 布局（docs/knowledge/{architecture,guides,troubleshooting,best-practices}/ 直接挂在根下，无端层）；沉淀一篇「CSV 列顺序」知识文档并登记进 docs/knowledge/index.md；`.keyword-map.json` 增加至少一条真实召回规则（正则含 csvColumns）；`bash scripts/knowledge-retrieve.sh \"csvColumns ...\"` 能命中且指向已存在文档；知识门禁与结构门禁均通过。"
+      "prompt": "这是我们内部的一个 CLI 工具 `csvtool`，**只有一个面**（只有 Go，没有前后端之分）。帮我建一套开发文档体系；顺便把「导出 CSV 列顺序会变」这个反复踩的坑沉淀成可复用的知识，并加一条关键词召回 —— 以后我写导出相关代码时，跑 `bash .knowlog/knowledge-retrieve.sh \"...\"` 就能被提示去看这条知识（关键词请用代码里的标识符 `csvColumns`，别用自然语言标题）。做完告诉我知识放在哪、怎么召回。",
+      "expected_output": "知识库落 flat 布局（docs/knowledge/{architecture,guides,troubleshooting,best-practices}/ 直接挂在根下，无端层）；沉淀一篇「CSV 列顺序」知识文档并登记进 docs/knowledge/index.md；`.keyword-map.json` 增加至少一条真实召回规则（正则含 csvColumns）；`bash .knowlog/knowledge-retrieve.sh \"csvColumns ...\"` 能命中且指向已存在文档；知识门禁与结构门禁均通过。"
     }
   ]
 }
