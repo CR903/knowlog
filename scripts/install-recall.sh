@@ -141,7 +141,14 @@ def put(rel: str, content: str, exec_bit=False):
 
 
 def put_from(src: pathlib.Path, rel: str, exec_bit=False):
-    put(rel, src.read_text(encoding="utf-8"), exec_bit)
+    if src.name.startswith("._"):
+        return                      # AppleDouble 影子文件：跳过（不是真文件）
+    try:
+        text = src.read_text(encoding="utf-8")
+    except UnicodeDecodeError as e:
+        notes.append(f"⚠️ 跳过非 UTF-8 源文件 {src}（{e}）—— 若是 ._ 影子文件可忽略")
+        return
+    put(rel, text, exec_bit)
 
 
 def put_tree(src: pathlib.Path, rel: str):
@@ -149,7 +156,8 @@ def put_tree(src: pathlib.Path, rel: str):
     if not src.is_dir():
         notes.append(f"⚠️ 缺少 {src} → 跳过 {rel}"); return
     for f in sorted(src.rglob("*")):
-        if f.is_dir() or f.name == ".DS_Store":
+        # 跳过 macOS 在 exFAT/网络卷上生成的 AppleDouble 影子文件（二进制，按 UTF-8 读会崩）
+        if f.is_dir() or f.name == ".DS_Store" or f.name.startswith("._"):
             continue
         put_from(f, str(pathlib.Path(rel) / f.relative_to(src)), exec_bit=f.suffix == ".mjs")
 

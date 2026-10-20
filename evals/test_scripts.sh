@@ -269,6 +269,15 @@ chk "知识门禁忽略 ._ghost.md" 'bash scripts/check-knowledge-index.sh --str
 chk "日志门禁忽略 ._heritage.md" 'bash scripts/check-daily-index.sh --strict >/dev/null'
 chk "体检整体仍绿（影子文件不影响）" 'bash scripts/docs-doctor.sh --strict >/dev/null'
 
+hdr "T12b install-recall 整树拷贝时跳过 ._ 影子文件（exFAT 回归）"
+P="$SB/t12b-shadow-tree"; mkproj "$P"
+bash "$SKILL/scripts/bootstrap-docs.sh" --root "$P" --project-name "影子树" >/dev/null 2>&1
+cd "$P"
+printf '\x00\xb0\x00shadow' > scripts/adapters/dsh/bridge/._index.js   # 假 AppleDouble（二进制）
+chk "整树拷贝不被 ._ 影子文件搞崩" 'bash scripts/install-recall.sh --agent dsh >/dev/null 2>&1'
+chk "bridge 真实文件仍然就位" '[ -f .dsh/bridge/lib/index.js ] && [ -f .dsh/docs-recall.patch.yml ]'
+chk "影子文件没有被复制进 .dsh/bridge" '[ ! -e .dsh/bridge/._index.js ]'
+
 hdr "T13 CLI 参数透传（带值参数不能被吞成开关）"
 if command -v node >/dev/null 2>&1 && [ -f "$SKILL/bin/knowlog.mjs" ]; then
   C="$SB/t13-cli"; rm -rf "$C"; mkdir -p "$C"

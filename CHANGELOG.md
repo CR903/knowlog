@@ -2,6 +2,13 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## 0.3.5 — 2026-10-20
+
+- 🐛 **exFAT / 网络卷上 `install-skill --agent auto` 会在 dsh 步骤崩掉**（`UnicodeDecodeError: 0xb0`）：
+  `install-recall.sh` 的整树拷贝把 `scripts/adapters/**/._xxx`（AppleDouble 影子文件，二进制）当 UTF-8 读。
+  现在 `put_tree` 跳过 `._*`，`put_from` 也跳过影子文件、遇到非 UTF-8 源文件只记一条警告（不再让整脚本挂掉）。
+- 🧪 自测 **108 项**（新增 3 条：往适配器目录塞假影子文件后整树拷贝仍成功、真文件就位、影子文件不被复制）。
+
 ## 0.3.4 — 2026-10-20
 
 **修掉「在非 git 目录 / exFAT 卷上安装」暴露的 3 个真机 bug**（把 0.3.3 装到真实项目时踩出来的）
