@@ -284,6 +284,9 @@ if command -v node >/dev/null 2>&1 && [ -f "$SKILL/bin/knowlog.mjs" ]; then
   ( cd "$C" && node "$SKILL/bin/knowlog.mjs" init --project-name "CLI项目" >/dev/null 2>&1 )
   chk "CLI init 带 --project-name 真的建了体系" '[ -f "$C/docs/index.md" ]'
   chk "CLI 把项目名写进 docs/README.md（值没被吞）" 'grep -q "CLI项目" "$C/docs/README.md"'
+  echo 'echo broken' >> "$C/scripts/docs-doctor.sh"
+  ( cd "$C" && node "$SKILL/bin/knowlog.mjs" init --force-scripts >/dev/null 2>&1 )
+  chk "CLI init --force-scripts 能刷新项目内脚本（升级路径）" '! grep -q broken "$C/scripts/docs-doctor.sh"'
 else
   ok "跳过 CLI 测试（本机无 node）"
 fi

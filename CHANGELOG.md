@@ -2,6 +2,13 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## 0.3.7 — 2026-10-20
+
+- 🐛 **`knowlog init --force-scripts` 被静默吞掉**：CLI 只透传了 `ends/project-name/knowledge-layout`，
+  这个 flag 根本没到脚本 → 想用它升级项目内脚本时，"看起来跑了、其实什么都没换"。
+  现在会透传；`npx knowlog init --force-scripts` 即可刷新**当前项目**的 `scripts/`（不动 docs/日志/索引）。
+- 🧪 自测 **113 项**（新增 1 条：CLI `--force-scripts` 真的覆盖项目内脚本）。
+
 ## 0.3.6 — 2026-10-20
 
 **召回不再「永远空转」：日志 → 沉淀 → 规则，全链路自动**

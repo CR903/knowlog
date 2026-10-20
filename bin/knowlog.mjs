@@ -112,7 +112,7 @@ function main() {
 
     case "init": {
       console.log(`${C.b}knowlog init${C.x} v${version()}`);
-      let rc = run("bootstrap-docs.sh", [...root, ...pass("ends", "project-name", "knowledge-layout"), ...(dry ? ["--dry-run"] : [])]);
+      let rc = run("bootstrap-docs.sh", [...root, ...pass("ends", "project-name", "knowledge-layout", "force-scripts"), ...(dry ? ["--dry-run"] : [])]);
       if (rc !== 0) return rc;
       if (flags.agent !== undefined || flags["with-recall"] !== undefined) {
         const target = resolve(flags.root || process.cwd());
